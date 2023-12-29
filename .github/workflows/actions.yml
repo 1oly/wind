@@ -2,7 +2,7 @@ name: run forecastedr_script.py
 
 on:
   schedule:
-    - cron: '15 15 * * *'
+    - cron: '*/10 * * * *'
 
 jobs:
   build:
