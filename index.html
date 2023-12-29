@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="description" content="WT map.">
+<title>Vindmøllekort</title>
+<style>
+
+* { margin: 0; padding: 0; }
+
+body { font: 14px/1.4 Georgia, serif; }
+
+html, #map {
+    position: absolute;
+    height: 100%;
+    width: 100vw;
+    padding: 0;
+}
+
+</style>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"
+  integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ=="
+  crossorigin=""/>
+<link rel="stylesheet" href="deps/L.Control.MousePosition.css"/>
+<script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"
+    integrity="sha512-/Nsx9X4HebavoBvEBuyp3I7od5tA0UzAxs+j83KgC8PU0kgB4XiK4Lfe4y4cgBtaRJQEIFCW+oC506aPT2L1zw=="
+    crossorigin="">
+</script>
+<script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-ajax/2.1.0/leaflet.ajax.min.js"></script>
+<script src='deps/L.Control.MousePosition.js'></script>
+<!--leaflet-velocity-->
+<link rel="stylesheet" href="deps/leaflet-velocity.css" />
+<script src="deps/leaflet-velocity.js"></script>
+</head>
+
+<body>
+
+<div id="map"></div>
+<script src="./wt.geojson"></script>
+<script>
+
+var map = new L.Map('map').setView([55.69, 12.56], 11);
+
+var layerControl = L.control.layers().addTo(map);
+
+var CartoDB_DarkMatterNoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+	subdomains: 'abcd',
+	maxZoom: 20
+}).addTo(map);
+
+// WIND PARTICLES
+$.getJSON("wind.json", function(data) {
+  var velocityLayer = L.velocityLayer({
+    displayValues: true,
+    displayOptions: {
+      velocityType: "Wind",
+      position: "bottomleft",
+      emptyString: "No wind data",
+    },
+    data: data,
+    maxVelocity: 25
+  });
+
+  layerControl.addOverlay(velocityLayer, "Vind");
+});
+
+function areaStyle(){
+    return {
+        //fillColor: 'yellow',
+        weight: 2,
+        opacity: 1,
+        color: 'black',
+        dashArray: '3',
+        fillOpacity: 0
+    }
+};
+
+function getColor(d) {
+    return d > 10 ? '#fde725':
+           d > 9  ? '#b5de2b':
+           d > 8  ? '#6ece58':
+           d > 7  ? '#35b779':
+           d > 6  ? '#1f9e89':
+           d > 5  ? '#26828e':
+           d > 4  ? '#31688e':
+           d > 3  ? '#3e4989':
+           d > 2  ? '#482878':
+           d > 1  ? '#440154':
+                    '#FFEDA0';
+}
+
+function getColor_wt(d) {
+    return d > 5 ? '#fde725':
+           d > 4  ? '#b5de2b':
+           d > 3  ? '#35b779':
+           d > 2  ? '#26828e':
+           d > 1.5  ? '#3e4989':
+           d > 1.0  ? '#482878':
+                    '#1a1812';
+}
+
+function wt_style(feature) {
+    var kap = feature.properties.Kapa_kW/1000
+    return {
+        radius: 3,
+        fillColor: getColor_wt(kap),
+        weight: 0.1,
+        opacity: 0.6,
+        fillOpacity: 0.6
+    };
+}
+
+var geojsonMarkerOptions = {
+    radius: 5,
+    fillColor: "#ff7800",
+    color: "#000",
+    weight: 1,
+    opacity: 1,
+    fillOpacity: 0.8
+};
+
+function onEachFeature(feature, layer) {
+    if (feature.properties && feature.properties.Fabrikat) {
+        layer.bindPopup(feature.properties.Fabrikat+' '+feature.properties.Kapa_kW/1000+'MW');
+        //layer.bindPopup(chart(feature));
+      }
+}
+
+
+function onshoreFilter(feature) {
+    if (feature.properties.Placering === "LAND") return true
+}
+
+function offshoreFilter(feature) {
+    if (feature.properties.Placering === "HAV") return true
+}
+
+
+function grid_onEachFeature(feature, layer) {
+    if (feature.properties) {
+        layer.bindPopup('vind hastighed: '+feature.properties.wind_speed);
+    }
+}
+function bboxFilter(feature) {
+    if (feature.geometry.coordinates[0] > 7.0 && feature.geometry.coordinates[1] < 58) return true
+}
+
+function circleMarker_grid(feature, latlng) {
+    return L.circleMarker(latlng, style(feature));
+}
+
+function circleMarker(feature, latlng) {
+    return L.circleMarker(latlng, wt_style(feature));
+}
+
+wtlyr_offshore = L.geoJSON(wt, {
+    filter: offshoreFilter,
+    pointToLayer: circleMarker,
+    onEachFeature: onEachFeature
+}).addTo(map);
+
+wtlyr_onshore = L.geoJSON(wt, {
+    filter: onshoreFilter,
+    pointToLayer: circleMarker,
+    onEachFeature: onEachFeature
+}).addTo(map);
+
+layerControl.addOverlay(wtlyr_onshore, 'Land vindmøller');
+layerControl.addOverlay(wtlyr_offshore, 'Hav vindmøller');
+
+map.fitBounds(wtlyr.getBounds());
+
+</script>
+</body>
+</html>
