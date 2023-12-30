@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 <meta name="description" content="WT map.">
-<title>Vindmøllekort</title>
+<title>Wind map</title>
 <style>
 
 * { margin: 0; padding: 0; }
@@ -53,7 +53,7 @@ var CartoDB_DarkMatterNoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/
 }).addTo(map);
 
 // WIND PARTICLES
-$.getJSON("wind.json", function(data) {
+$.getJSON("https://raw.githubusercontent.com/1oly/wind/main/wind.json", function(data) {
   var velocityLayer = L.velocityLayer({
     displayValues: true,
     displayOptions: {
@@ -65,7 +65,7 @@ $.getJSON("wind.json", function(data) {
     maxVelocity: 25
   });
 
-  layerControl.addOverlay(velocityLayer, "Vind");
+  layerControl.addOverlay(velocityLayer, "Wind").addTo(map);
 });
 
 function areaStyle(){
@@ -169,10 +169,10 @@ wtlyr_onshore = L.geoJSON(wt, {
     onEachFeature: onEachFeature
 }).addTo(map);
 
-layerControl.addOverlay(wtlyr_onshore, 'Land vindmøller');
-layerControl.addOverlay(wtlyr_offshore, 'Hav vindmøller');
+layerControl.addOverlay(wtlyr_onshore, 'Onshore wind turbines');
+layerControl.addOverlay(wtlyr_offshore, 'Offshore wind turbines');
 
-map.fitBounds(wtlyr.getBounds());
+map.fitBounds(wtlyr_offshore.getBounds());
 
 </script>
 </body>
