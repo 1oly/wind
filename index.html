@@ -53,7 +53,7 @@ var CartoDB_DarkMatterNoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/
 }).addTo(map);
 
 // WIND PARTICLES
-$.getJSON("https://raw.githubusercontent.com/1oly/wind/main/wind.json", function(data) {
+$.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind.json", function(data) {
   var velocityLayer = L.velocityLayer({
     displayValues: true,
     displayOptions: {
