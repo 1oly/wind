@@ -125,6 +125,7 @@ wtlyr = L.geoJSON(wt, {
 }).addTo(map);
 layerControl.addOverlay(wtlyr, 'Wind turbines');
 
+map.fitBounds(wtlyr.getBounds());
 
 </script>
 </body>
