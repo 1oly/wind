@@ -4,7 +4,7 @@ import numpy as np
 from scipy.interpolate import griddata
 import math
 import json
-
+import pytz
 from dmi_forecast_edr import DMIForecastEDRClient, Collection
 
 try:
@@ -14,7 +14,7 @@ except KeyError:
 
 client = DMIForecastEDRClient(api_key=DMI_API_KEY)
 
-dtnow = datetime.now()
+dtnow = datetime.now(pytz.timezone('Europe/Copenhagen')).replace(tzinfo=None)
 
 forecast = client.get_forecast(
     collection = Collection.HarmonieNeaSf,
@@ -22,7 +22,7 @@ forecast = client.get_forecast(
     crs = 'crs84',
     to_time = dtnow,
     f = 'GeoJSON',
-    coords = [7.00,54.00,16.00,58.00]
+    coords = [6.00,53.00,17.00,59.00]
 )
 
 # Returns non-gridded data that does not fit into wind.js grid.
