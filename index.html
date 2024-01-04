@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-<meta name="description" content="WT map.">
+<meta name="description" content="Wind map.">
 <title>Wind map</title>
 <style>
 
@@ -16,7 +16,8 @@ html, #map {
     width: 100vw;
     padding: 0;
 }
-
+.info { padding: 6px 8px; font: 10px/12px Arial, Helvetica, sans-serif; background: white; background: rgba(255,255,255,0.8); box-shadow: 0 0 15px rgba(0,0,0,0.2); border-radius: 5px; } .info h4 { margin: 0 0 5px; color: #777; }
+.legend { text-align: left; line-height: 18px; color: #555; } .legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7; }
 </style>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -42,12 +43,12 @@ html, #map {
 <script src="./wt.geojson"></script>
 <script>
 
-var map = new L.Map('map').setView([55.69, 12.56], 11);
-
+var map = new L.Map('map').setView([55.69, 12.56], 7);
+map.attributionControl.addAttribution('<a href="https://confluence.govcloud.dk/display/FDAPI/Danish+Meteorological+Institute+-+Open+Data">DMI Open Data</a>');
 var layerControl = L.control.layers().addTo(map);
 
 var CartoDB_DarkMatterNoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
-	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
 	subdomains: 'abcd',
 	maxZoom: 20
 }).addTo(map);
@@ -63,35 +64,11 @@ $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind.json", f
     },
     data: data,
     maxVelocity: 25
-  });
-
-  layerControl.addOverlay(velocityLayer, "Wind").addTo(map);
+  }).addTo(map);
+  
+  layerControl.addOverlay(velocityLayer, "Wind");
 });
 
-function areaStyle(){
-    return {
-        //fillColor: 'yellow',
-        weight: 2,
-        opacity: 1,
-        color: 'black',
-        dashArray: '3',
-        fillOpacity: 0
-    }
-};
-
-function getColor(d) {
-    return d > 10 ? '#fde725':
-           d > 9  ? '#b5de2b':
-           d > 8  ? '#6ece58':
-           d > 7  ? '#35b779':
-           d > 6  ? '#1f9e89':
-           d > 5  ? '#26828e':
-           d > 4  ? '#31688e':
-           d > 3  ? '#3e4989':
-           d > 2  ? '#482878':
-           d > 1  ? '#440154':
-                    '#FFEDA0';
-}
 
 function getColor_wt(d) {
     return d > 5 ? '#fde725':
@@ -104,75 +81,50 @@ function getColor_wt(d) {
 }
 
 function wt_style(feature) {
-    var kap = feature.properties.Kapa_kW/1000
+    var kap = feature.properties.Kapacitet_/1000
     return {
-        radius: 3,
+        radius: 4,
         fillColor: getColor_wt(kap),
         weight: 0.1,
-        opacity: 0.6,
-        fillOpacity: 0.6
+        opacity: 0.8,
+        fillOpacity: 0.5
     };
 }
 
-var geojsonMarkerOptions = {
-    radius: 5,
-    fillColor: "#ff7800",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8
+var legend = L.control({position: 'bottomright'});
+
+legend.onAdd = function (map) {
+    var div = L.DomUtil.create('div', 'info legend');
+    grades = [0, 1, 1.5, 2, 3, 4, 5];
+    labels = [];
+    for (var i = 0; i < grades.length; i++) {
+        div.innerHTML +=
+        labels.push(
+            '<i style="background:' + getColor_wt(grades[i]+1) + '"></i> ' +
+            grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + ' MW <br>' : '+'));
+}
+div.innerHTML = labels.join('<br>');
+return div;
 };
+legend.addTo(map);
+
 
 function onEachFeature(feature, layer) {
-    if (feature.properties && feature.properties.Fabrikat) {
-        layer.bindPopup(feature.properties.Fabrikat+' '+feature.properties.Kapa_kW/1000+'MW');
-        //layer.bindPopup(chart(feature));
+    if (feature.properties && feature.properties.Model) {
+        layer.bindPopup('Model: '+feature.properties.Model);
       }
-}
-
-
-function onshoreFilter(feature) {
-    if (feature.properties.Placering === "LAND") return true
-}
-
-function offshoreFilter(feature) {
-    if (feature.properties.Placering === "HAV") return true
-}
-
-
-function grid_onEachFeature(feature, layer) {
-    if (feature.properties) {
-        layer.bindPopup('vind hastighed: '+feature.properties.wind_speed);
-    }
-}
-function bboxFilter(feature) {
-    if (feature.geometry.coordinates[0] > 7.0 && feature.geometry.coordinates[1] < 58) return true
-}
-
-function circleMarker_grid(feature, latlng) {
-    return L.circleMarker(latlng, style(feature));
 }
 
 function circleMarker(feature, latlng) {
     return L.circleMarker(latlng, wt_style(feature));
 }
 
-wtlyr_offshore = L.geoJSON(wt, {
-    filter: offshoreFilter,
+wtlyr = L.geoJSON(wt, {
     pointToLayer: circleMarker,
     onEachFeature: onEachFeature
 }).addTo(map);
+layerControl.addOverlay(wtlyr, 'Wind turbines');
 
-wtlyr_onshore = L.geoJSON(wt, {
-    filter: onshoreFilter,
-    pointToLayer: circleMarker,
-    onEachFeature: onEachFeature
-}).addTo(map);
-
-layerControl.addOverlay(wtlyr_onshore, 'Onshore wind turbines');
-layerControl.addOverlay(wtlyr_offshore, 'Offshore wind turbines');
-
-map.fitBounds(wtlyr_offshore.getBounds());
 
 </script>
 </body>
