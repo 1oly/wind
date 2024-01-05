@@ -54,22 +54,6 @@ var CartoDB_DarkMatterNoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/
 	maxZoom: 20
 }).addTo(map);
 
-// WIND PARTICLES
-$.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind.json", function(data) {
-  var velocityLayer = L.velocityLayer({
-    displayValues: true,
-    displayOptions: {
-      velocityType: "Wind",
-      position: "bottomleft",
-      emptyString: "No wind data",
-    },
-    data: data,
-    maxVelocity: 25
-  }).addTo(map);
-  
-  layerControl.addOverlay(velocityLayer, "Wind");
-});
-
 function getRad_wt(d) {
     return d < 1 ? 1:
            d**0.6;
@@ -103,6 +87,23 @@ wtlyr = L.geoJSON(wt, {
 layerControl.addOverlay(wtlyr, 'Wind turbines');
 
 map.fitBounds(wtlyr.getBounds());
+
+// WIND PARTICLES
+$.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind.json", function(data) {
+  var velocityLayer = L.velocityLayer({
+    displayValues: true,
+    displayOptions: {
+      velocityType: "Wind",
+      position: "bottomleft",
+      emptyString: "No wind data",
+    },
+    data: data,
+    maxVelocity: 25
+  }).addTo(map);
+  
+  layerControl.addOverlay(velocityLayer, "Wind");
+});
+
 
 </script>
 </body>
