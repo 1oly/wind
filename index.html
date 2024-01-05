@@ -30,6 +30,7 @@ html, #map {
     crossorigin="">
 </script>
 <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+<script src=https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.2.1/math.min.js></script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-ajax/2.1.0/leaflet.ajax.min.js"></script>
 <script src='dist/L.Control.MousePosition.js'></script>
 <!--leaflet-velocity-->
@@ -43,7 +44,7 @@ html, #map {
 <script src="./wt.geojson"></script>
 <script>
 
-var map = new L.Map('map').setView([55.69, 12.56], 7);
+var map = new L.Map('map',{ zoomControl: false }).setView([55.69, 12.56], 7);
 map.attributionControl.addAttribution('<a href="https://confluence.govcloud.dk/display/FDAPI/Danish+Meteorological+Institute+-+Open+Data">DMI Open Data</a>');
 var layerControl = L.control.layers().addTo(map);
 
@@ -69,45 +70,21 @@ $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind.json", f
   layerControl.addOverlay(velocityLayer, "Wind");
 });
 
-
-function getColor_wt(d) {
-    return d > 5 ? '#fde725':
-           d > 4  ? '#b5de2b':
-           d > 3  ? '#35b779':
-           d > 2  ? '#26828e':
-           d > 1.5  ? '#3e4989':
-           d > 1.0  ? '#482878':
-                    '#1a1812';
+function getRad_wt(d) {
+    return d < 1 ? 1:
+           d**0.6;
 }
 
 function wt_style(feature) {
     var kap = feature.properties.Kapacitet_/1000
     return {
-        radius: 4,
-        fillColor: getColor_wt(kap),
-        weight: 0.1,
-        opacity: 0.8,
-        fillOpacity: 0.5
+        radius: getRad_wt(kap),
+        fillColor: 'white',
+        weight: 0.0,
+        opacity: 0.0,
+        fillOpacity: 1
     };
 }
-
-var legend = L.control({position: 'bottomright'});
-
-legend.onAdd = function (map) {
-    var div = L.DomUtil.create('div', 'info legend');
-    grades = [0, 1, 1.5, 2, 3, 4, 5];
-    labels = [];
-    for (var i = 0; i < grades.length; i++) {
-        div.innerHTML +=
-        labels.push(
-            '<i style="background:' + getColor_wt(grades[i]+1) + '"></i> ' +
-            grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + ' MW <br>' : '+'));
-}
-div.innerHTML = labels.join('<br>');
-return div;
-};
-legend.addTo(map);
-
 
 function onEachFeature(feature, layer) {
     if (feature.properties && feature.properties.Model) {
