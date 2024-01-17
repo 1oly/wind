@@ -89,7 +89,7 @@ layerControl.addOverlay(wtlyr, 'Wind turbines');
 map.fitBounds(wtlyr.getBounds());
 
 // WIND PARTICLES
-$.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind.json", function(data) {
+$.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind10m.json", function(data) {
   var velocityLayer = L.velocityLayer({
     displayValues: true,
     displayOptions: {
