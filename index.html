@@ -8,7 +8,7 @@
 
 * { margin: 0; padding: 0; }
 
-body { font: 14px/1.4 Georgia, serif; }
+body {font: 10pt "Helvetica Neue", Arial, Helvetica, sans-serif;}
 
 html, #map {
     position: absolute;
@@ -21,6 +21,7 @@ html, #map {
 </style>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"
   integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ=="
   crossorigin=""/>
@@ -36,9 +37,48 @@ html, #map {
 <!--leaflet-velocity-->
 <link rel="stylesheet" href="dist/leaflet-velocity.css" />
 <script src="dist/leaflet-velocity.js"></script>
+<!--leaflet-sidebar-v2-->
+<script src="https://cdn.jsdelivr.net/npm/leaflet-sidebar-v2@3.2.3/js/leaflet-sidebar.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/leaflet-sidebar-v2@3.2.3/css/leaflet-sidebar.min.css" rel="stylesheet">
 </head>
 
 <body>
+
+ <!-- optionally define the sidebar content via HTML markup -->
+ <div id="sidebar" class="leaflet-sidebar collapsed">
+
+  <!-- nav tabs -->
+  <div class="leaflet-sidebar-tabs">
+      <!-- top aligned tabs -->
+      <ul role="tablist">
+          <li><a href="#home" role="tab"><i class="fa fa-bars active"></i></a></li>
+      </ul>
+      <!-- bottom aligned tabs -->
+      <ul role="tablist">
+        <li><a href="https://github.com/1oly/wind"><i class="fa-brands fa-github"></i></a></li>
+    </ul>
+  </div>
+
+  <!-- panel content -->
+  <div class="leaflet-sidebar-content">
+      <div class="leaflet-sidebar-pane" id="home">
+          <h1 class="leaflet-sidebar-header">
+              Wind map
+              <span class="leaflet-sidebar-close"><i class="fa fa-caret-left"></i></span>
+          </h1>
+          <h2>About wind map</h2>
+          <p>This wind map is made to show the current wind turbines and wind field in Denmark. 
+            The aim is to have a near-real time presentation of the power production from each individual wind turbine and potentially also a forecast.</p>
+            <h3>Data sources</h3>
+            <ul>
+              <li>Basemap is courtesy of <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> and <a href="https://carto.com/attributions">CARTO</a>. </li>
+              <li>Wind data is from Harmonie forecast model run by <a href="https://www.dmi.dk">DMI</a> and <a href="https://opendatadocs.dmi.govcloud.dk/DMIOpenData">DMI Open Data</a>.</li>
+              <li>Wind turbine data is from <a href="https://ens.dk/service/statistik-data-noegletal-og-kort/download-gis-filer">Energistyrelsen</a>(the Danish Energy Agency).</li>
+          </ul>
+      </div>
+  </div>
+</div>
+
 
 <div id="map"></div>
 <script src="./wt.geojson"></script>
@@ -104,6 +144,13 @@ $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind10m.json"
   layerControl.addOverlay(velocityLayer, "Wind");
 });
 
+
+var sidebar = L.control.sidebar({
+    autopan: false,       // whether to maintain the centered map point when opening the sidebar
+    closeButton: true,    // whether t add a close button to the panes
+    container: 'sidebar', // the DOM container or #ID of a predefined sidebar container that should be used
+    position: 'left',     // left or right
+}).addTo(map);
 
 </script>
 </body>
