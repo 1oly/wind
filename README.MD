@@ -1,5 +1,7 @@
 # Wind visualization
-"Real-time" (once per hour) wind visualization from forecast model Harmonie via the Danish Meterological Institute. 
+"Real-time" (once per hour) wind visualization from forecast model Harmonie via the Danish Meterological Institute. Live view:
+
+[![Wind map](windmap.png)](https://wind.olly.dk)
 
 Data is retrieved with the [DMI-Forecast-EDR-API](https://github.com/1oly/dmi-forecast-edr) that requires an API key.
 
