@@ -30,6 +30,7 @@ html, #map {
     integrity="sha512-/Nsx9X4HebavoBvEBuyp3I7od5tA0UzAxs+j83KgC8PU0kgB4XiK4Lfe4y4cgBtaRJQEIFCW+oC506aPT2L1zw=="
     crossorigin="">
 </script>
+<script src="https://d3js.org/d3.v7.js"></script>
 <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
 <script src=https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.2.1/math.min.js></script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-ajax/2.1.0/leaflet.ajax.min.js"></script>
@@ -52,11 +53,9 @@ html, #map {
       <!-- top aligned tabs -->
       <ul role="tablist">
           <li><a href="#home" role="tab"><i class="fa fa-bars active"></i></a></li>
+          <li><a href="#wind" role="tab"><i class="fa fa-wind active"></i></a></li>
+          <li><a href="https://github.com/1oly/wind"><i class="fa-brands fa-github"></i></a></li>
       </ul>
-      <!-- bottom aligned tabs -->
-      <ul role="tablist">
-        <li><a href="https://github.com/1oly/wind"><i class="fa-brands fa-github"></i></a></li>
-    </ul>
   </div>
 
   <!-- panel content -->
@@ -76,6 +75,24 @@ html, #map {
               <li>Wind turbine data is from <a href="https://ens.dk/service/statistik-data-noegletal-og-kort/download-gis-filer">Energistyrelsen</a>(the Danish Energy Agency).</li>
           </ul>
       </div>
+      <div class="leaflet-sidebar-pane" id="wind">
+        <h1 class="leaflet-sidebar-header">
+            Wind turbine
+            <span class="leaflet-sidebar-close"><i class="fa fa-caret-left"></i></span>
+        </h1>
+        <h3>Wind turbine specs</h3>
+        <p></p>
+        <ul style="list-style: none;">
+        <li><b>Model:</b> <div class="manufacturer" style="display: inline"></div> (<div class="model" style="display: inline"></div>)</li>
+        <li><b>Power:</b> <div class="power" style="display: inline"></div> MW.</li>
+        <li><b>Rotor diamter:</b> <div class="rotor_diam" style="display: inline"></div> m.</li>
+        <li><b>Hub height:</b> <div class="hub_height" style="display: inline"></div> m.</li>
+        </ul>
+        <p></p>
+        <h3>Power production</h3>
+        <p></p>
+        <div id="chart"></div>
+    </div>
   </div>
 </div>
 
@@ -112,7 +129,16 @@ function wt_style(feature) {
 
 function onEachFeature(feature, layer) {
     if (feature.properties && feature.properties.Model) {
-        layer.bindPopup('Model: '+feature.properties.Model);
+        layer.on('click', function(e) {
+          sidebar.open('wind');
+          $(".model").html(feature.properties.Model);
+          $(".manufacturer").html(feature.properties.Fabrikat);
+          $(".power").html(feature.properties.Kapacitet_/1000);
+          $(".hub_height").html(feature.properties.Navhøjde_);
+          $(".rotor_diam").html(feature.properties.Rotordiame);
+          //chart(feature);
+          console.log(addTochart(feature));
+        });
       }
 }
 
@@ -151,6 +177,47 @@ var sidebar = L.control.sidebar({
     container: 'sidebar', // the DOM container or #ID of a predefined sidebar container that should be used
     position: 'left',     // left or right
 }).addTo(map);
+
+// d3 chart:
+var margin = {top: 30, right: 30, bottom: 70, left: 30},
+    width = 360 - margin.left - margin.right,
+    height = 300 - margin.top - margin.bottom;
+
+var svg = d3.select("#chart")
+  .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+var x = d3.scaleLinear()
+  .range([ 0, width ])
+  .domain([1977,2022])
+  //.padding(0.2);
+svg.append("g")
+  .attr("transform", "translate(0," + height + ")")
+  .call(d3.axisBottom(x).tickFormat(d3.format('d')))
+  .selectAll("text")
+  //.append("text")
+  //.attr("class","label")
+  .attr("transform", "translate(-10,0)rotate(-45)")
+  .style("text-anchor", "end");
+
+var y = d3.scaleLinear()
+  .domain([0, 200])
+  .range([ height, 0]);
+svg.append("g")
+  .call(d3.axisLeft(y));
+
+function addTochart(d) {
+  var data = []
+  for(var i = 0; i < d.properties.length; i++){
+    data.push(d.properties.name);
+  }
+  return data;
+}
+
 
 </script>
 </body>
