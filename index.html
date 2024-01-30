@@ -25,12 +25,13 @@ html, #map {
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"
   integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ=="
   crossorigin=""/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.7.20/c3.css"/>
 <link rel="stylesheet" href="dist/L.Control.MousePosition.css"/>
 <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"
     integrity="sha512-/Nsx9X4HebavoBvEBuyp3I7od5tA0UzAxs+j83KgC8PU0kgB4XiK4Lfe4y4cgBtaRJQEIFCW+oC506aPT2L1zw=="
     crossorigin="">
 </script>
-<script src="https://d3js.org/d3.v7.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
 <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
 <script src=https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.2.1/math.min.js></script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-ajax/2.1.0/leaflet.ajax.min.js"></script>
@@ -72,7 +73,7 @@ html, #map {
             <ul>
               <li>Basemap is courtesy of <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> and <a href="https://carto.com/attributions">CARTO</a>. </li>
               <li>Wind data is from Harmonie forecast model run by <a href="https://www.dmi.dk">DMI</a> and <a href="https://opendatadocs.dmi.govcloud.dk/DMIOpenData">DMI Open Data</a>.</li>
-              <li>Wind turbine data is from <a href="https://ens.dk/service/statistik-data-noegletal-og-kort/download-gis-filer">Energistyrelsen</a>(the Danish Energy Agency).</li>
+              <li>Wind turbine data is from <a href="https://ens.dk/service/statistik-data-noegletal-og-kort/download-gis-filer">Energistyrelsen</a> (the Danish Energy Agency).</li>
           </ul>
       </div>
       <div class="leaflet-sidebar-pane" id="wind">
@@ -91,7 +92,7 @@ html, #map {
         <p></p>
         <h3>Power production</h3>
         <p></p>
-        <div id="chart"></div>
+        <div id="chart" style="width:330px;height:200px;"></div>
     </div>
   </div>
 </div>
@@ -102,7 +103,7 @@ html, #map {
 <script>
 
 var map = new L.Map('map',{ zoomControl: false }).setView([55.69, 12.56], 7);
-map.attributionControl.addAttribution('<a href="https://confluence.govcloud.dk/display/FDAPI/Danish+Meteorological+Institute+-+Open+Data">DMI Open Data</a>');
+map.attributionControl.addAttribution('<a href="https://confluence.govcloud.dk/display/FDAPI/Danish+Meteorological+Institute+-+Open+Data">&copy; DMI</a>');
 var layerControl = L.control.layers().addTo(map);
 
 var CartoDB_DarkMatterNoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
@@ -136,8 +137,7 @@ function onEachFeature(feature, layer) {
           $(".power").html(feature.properties.Kapacitet_/1000);
           $(".hub_height").html(feature.properties.Navhøjde_);
           $(".rotor_diam").html(feature.properties.Rotordiame);
-          //chart(feature);
-          console.log(addTochart(feature));
+          getData(feature);
         });
       }
 }
@@ -177,47 +177,35 @@ var sidebar = L.control.sidebar({
     container: 'sidebar', // the DOM container or #ID of a predefined sidebar container that should be used
     position: 'left',     // left or right
 }).addTo(map);
-
-// d3 chart:
-var margin = {top: 30, right: 30, bottom: 70, left: 30},
-    width = 360 - margin.left - margin.right,
-    height = 300 - margin.top - margin.bottom;
-
-var svg = d3.select("#chart")
-  .append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-  .append("g")
-    .attr("transform",
-          "translate(" + margin.left + "," + margin.top + ")");
-
-var x = d3.scaleLinear()
-  .range([ 0, width ])
-  .domain([1977,2022])
-  //.padding(0.2);
-svg.append("g")
-  .attr("transform", "translate(0," + height + ")")
-  .call(d3.axisBottom(x).tickFormat(d3.format('d')))
-  .selectAll("text")
-  //.append("text")
-  //.attr("class","label")
-  .attr("transform", "translate(-10,0)rotate(-45)")
-  .style("text-anchor", "end");
-
-var y = d3.scaleLinear()
-  .domain([0, 200])
-  .range([ height, 0]);
-svg.append("g")
-  .call(d3.axisLeft(y));
-
-function addTochart(d) {
-  var data = []
-  for(var i = 0; i < d.properties.length; i++){
-    data.push(d.properties.name);
+ 
+function getData(d) {
+  var data = [];
+  const yearsN = [...Array(46)].map((_, i) => i+1977)
+  const years = [...Array(46)].map((_, i) => `Y${i+1977}`)
+  const keys = Object.keys(d.properties)
+  filteredArray = keys.filter( function( el ) {
+    return years.includes( el );
+  } );
+  
+  for(i in filteredArray){
+    k = d.properties[filteredArray[i]]
+    if (k === null){
+      v = 0.0
+    }
+    else {
+      v = k/1000.0
+    }
+    data.push(v);
   }
-  return data;
+  plot = document.getElementById('chart');
+  Plotly.newPlot( plot, [{
+  x: yearsN,
+  y: data,
+  type: 'bar'}], {
+  xaxis: {title:{text:'Year'},font:{family:'Helvetica Neue',size:10}},
+  yaxis: {title:{text:'MWh'},font:{family:'Helvetica Neue',size:10}},
+  margin: {l:50,r:10, t: 20 ,b:30} });
 }
-
 
 </script>
 </body>
