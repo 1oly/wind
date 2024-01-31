@@ -56,6 +56,7 @@ html, #map {
           <li><a href="#home" role="tab"><i class="fa fa-bars active"></i></a></li>
           <li><a href="#wind" role="tab"><i class="fa fa-wind active"></i></a></li>
           <li><a href="https://github.com/1oly/wind"><i class="fa-brands fa-github"></i></a></li>
+          <li><a href="https://olly.dk"><i class="fa fa-home"></i></a></li>
       </ul>
   </div>
 
@@ -88,18 +89,19 @@ html, #map {
         <li><b>Power:</b> <div class="power" style="display: inline"></div> MW.</li>
         <li><b>Rotor diamter:</b> <div class="rotor_diam" style="display: inline"></div> m.</li>
         <li><b>Hub height:</b> <div class="hub_height" style="display: inline"></div> m.</li>
+        <li><b>Date connected:</b> <div class="date_connect" style="display: inline"></div></li>
+        <li><b>Date decomissioned:</b> <div class="date_decom" style="display: inline"></div></li>
         </ul>
         <p></p>
         <h3>Power production</h3>
         <p></p>
-        <div id="chart" style="width:330px;height:200px;"></div>
+        <div id="chart" style="width:330px;height:200px;"></div> 
     </div>
   </div>
 </div>
 
 
 <div id="map"></div>
-<script src="./wt.geojson"></script>
 <script>
 
 var map = new L.Map('map',{ zoomControl: false }).setView([55.69, 12.56], 7);
@@ -118,7 +120,7 @@ function getRad_wt(d) {
 }
 
 function wt_style(feature) {
-    var kap = feature.properties.Kapacitet_/1000
+    var kap = feature.properties.capacity_kW/1000
     return {
         radius: getRad_wt(kap),
         fillColor: 'white',
@@ -129,32 +131,46 @@ function wt_style(feature) {
 }
 
 function onEachFeature(feature, layer) {
-    if (feature.properties && feature.properties.Model) {
+    if (feature.properties && feature.properties.type) {
         layer.on('click', function(e) {
           sidebar.open('wind');
-          $(".model").html(feature.properties.Model);
-          $(".manufacturer").html(feature.properties.Fabrikat);
-          $(".power").html(feature.properties.Kapacitet_/1000);
-          $(".hub_height").html(feature.properties.Navhøjde_);
-          $(".rotor_diam").html(feature.properties.Rotordiame);
+          $(".model").html(feature.properties.type);
+          $(".manufacturer").html(feature.properties.manufacturer);
+          $(".power").html(feature.properties.capacity_kW/1000);
+          $(".hub_height").html(feature.properties.hub_height_m);
+          $(".rotor_diam").html(feature.properties.rotor_diam_m);
+          (feature.properties.date_connect !== null) ? feature.properties.date_connect : '';
+          $(".date_connect").html((feature.properties.date_connect !== null) ? feature.properties.date_connect.split('T')[0] : '');
+          $(".date_decom").html((feature.properties.date_decom !== null) ? feature.properties.date_decom.split('T')[0] : '');
+          //$(".wind_speed").html(getWindSpeed(e));
           getData(feature);
         });
       }
+}
+
+function getWindSpeed(e) {
+  if ($('.leaflet-control-velocity').length > 0) {
+    var velocityValue = $('.leaflet-control-velocity').text();
+    }
+  return velocityValue
 }
 
 function circleMarker(feature, latlng) {
     return L.circleMarker(latlng, wt_style(feature));
 }
 
+// WIND TURBINES
+$.getJSON("https://raw.githubusercontent.com/1oly/wind/main/wt_2023.json", function(wt) {
 wtlyr = L.geoJSON(wt, {
-    pointToLayer: circleMarker,
-    onEachFeature: onEachFeature
+  pointToLayer: circleMarker,
+  onEachFeature: onEachFeature
 }).addTo(map);
 layerControl.addOverlay(wtlyr, 'Wind turbines');
-
 map.fitBounds(wtlyr.getBounds());
+});
 
 // WIND PARTICLES
+
 $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind10m.json", function(data) {
   var velocityLayer = L.velocityLayer({
     displayValues: true,
@@ -167,9 +183,8 @@ $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind10m.json"
     maxVelocity: 25
   }).addTo(map);
   
-  layerControl.addOverlay(velocityLayer, "Wind");
+  layerControl.addOverlay(velocityLayer, "Wind 10m");
 });
-
 
 var sidebar = L.control.sidebar({
     autopan: false,       // whether to maintain the centered map point when opening the sidebar
@@ -180,8 +195,8 @@ var sidebar = L.control.sidebar({
  
 function getData(d) {
   var data = [];
-  const yearsN = [...Array(46)].map((_, i) => i+1977)
-  const years = [...Array(46)].map((_, i) => `Y${i+1977}`)
+  const yearsN = [...Array(47)].map((_, i) => i+1977)
+  const years = [...Array(47)].map((_, i) => `Y${i+1977}`)
   const keys = Object.keys(d.properties)
   filteredArray = keys.filter( function( el ) {
     return years.includes( el );
