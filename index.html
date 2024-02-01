@@ -16,8 +16,11 @@ html, #map {
     width: 100vw;
     padding: 0;
 }
-.info { padding: 6px 8px; font: 10px/12px Arial, Helvetica, sans-serif; background: white; background: rgba(255,255,255,0.8); box-shadow: 0 0 15px rgba(0,0,0,0.2); border-radius: 5px; } .info h4 { margin: 0 0 5px; color: #777; }
-.legend { text-align: left; line-height: 18px; color: #555; } .legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7; }
+
+body > #sidebar {
+            display: none;
+}
+
 </style>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -76,14 +79,15 @@ html, #map {
               <li>Wind data is from Harmonie forecast model run by <a href="https://www.dmi.dk">DMI</a> and <a href="https://opendatadocs.dmi.govcloud.dk/DMIOpenData">DMI Open Data</a>.</li>
               <li>Wind turbine data is from <a href="https://ens.dk/service/statistik-data-noegletal-og-kort/download-gis-filer">Energistyrelsen</a> (the Danish Energy Agency).</li>
           </ul>
+          <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+          <p><a href="https://visitorbadge.io/status?path=https%3A%2F%2Fwind.olly.dk"><img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fwind.olly.dk&label=VISITORS&countColor=%23263759&style=flat-square" /></a></p>
       </div>
       <div class="leaflet-sidebar-pane" id="wind">
         <h1 class="leaflet-sidebar-header">
             Wind turbine
             <span class="leaflet-sidebar-close"><i class="fa fa-caret-left"></i></span>
         </h1>
-        <h3>Wind turbine specs</h3>
-        <p></p>
+        <h3>Wind turbine specs*</h3>
         <ul style="list-style: none;">
         <li><b>Model:</b> <div class="manufacturer" style="display: inline"></div> (<div class="model" style="display: inline"></div>)</li>
         <li><b>Power:</b> <div class="power" style="display: inline"></div> MW.</li>
@@ -92,10 +96,10 @@ html, #map {
         <li><b>Date connected:</b> <div class="date_connect" style="display: inline"></div></li>
         <li><b>Date decomissioned:</b> <div class="date_decom" style="display: inline"></div></li>
         </ul>
-        <p></p>
         <h3>Power production</h3>
         <p></p>
-        <div id="chart" style="width:330px;height:200px;"></div> 
+        <div id="chart" style="width:300px;height:200px;"></div>
+        <p><i>* Data is taken directly from Energistyrelsen and not quality assured before displaying it here. Wrong infomation may occur.</i></p>
     </div>
   </div>
 </div>
