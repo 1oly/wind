@@ -100,6 +100,9 @@ body > #sidebar {
         <p></p>
         <div id="chart" style="width:300px;height:200px;"></div>
         <p><i>* Data is taken directly from Energistyrelsen and not quality assured before displaying it here. Wrong infomation may occur.</i></p>
+        <h3>Wind forecast</h3>
+        <p></p>
+        <b>Forecast time:</b> <div class="refDate" style="display: inline"></div> <div class="refTime" style="display: inline"></div>
     </div>
   </div>
 </div>
@@ -186,7 +189,8 @@ $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind10m.json"
     data: data,
     maxVelocity: 25
   }).addTo(map);
-  
+  $(".refDate").html(data[0].header.refTime.substr(0, 10));
+  $(".refTime").html(data[0].header.refTime.substr(11, 8));
   layerControl.addOverlay(velocityLayer, "Wind 10m");
 });
 
