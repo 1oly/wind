@@ -167,7 +167,7 @@ function circleMarker(feature, latlng) {
 }
 
 // WIND TURBINES
-$.getJSON("https://raw.githubusercontent.com/1oly/wind/main/wt_2023.json", function(wt) {
+$.getJSON("https://raw.githubusercontent.com/1oly/wind/main/wt_2024.json", function(wt) {
 wtlyr = L.geoJSON(wt, {
   pointToLayer: circleMarker,
   onEachFeature: onEachFeature

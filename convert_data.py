@@ -1,4 +1,4 @@
-import pandas as pd 
+import pandas as pd
 import geopandas
 years = [f'Y{x}' for x in range(1977,2024)]
 df = pd.read_excel('anlaeg.xlsx',skiprows=13,header=0,usecols='A:BI,BU',
@@ -10,4 +10,4 @@ df = pd.read_excel('anlaeg.xlsx',skiprows=13,header=0,usecols='A:BI,BU',
 
 points = geopandas.points_from_xy(x=df.X_UTM_32_ETRS89, y=df.Y_UTM_32_ETRS89,crs="EPSG:25832")
 gdf = geopandas.GeoDataFrame(df, geometry=points).to_crs("EPSG:4326")
-gdf.to_file('wt_2023.json', driver='GeoJSON')
+gdf.to_file('wt_2024.json', driver='GeoJSON')
