@@ -17,7 +17,7 @@ client = DMIForecastEDRClient(api_key=DMI_API_KEY)
 dtnow = datetime.now(pytz.timezone('Europe/Copenhagen')).replace(tzinfo=None)
 
 forecast = client.get_forecast(
-    collection = Collection.HarmonieNeaSf,
+    collection = Collection.HarmonieDiniSf,
     parameter = ['wind-speed-10m','wind-speed-50m','wind-speed-100m','wind-speed-150m','wind-speed-250m','wind-dir-10m','wind-dir-50m','wind-dir-100m','wind-dir-150m','wind-dir-250m'],
     crs = 'crs84',
     to_time = dtnow,
