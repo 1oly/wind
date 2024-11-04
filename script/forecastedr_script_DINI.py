@@ -22,7 +22,7 @@ forecast = client.get_forecast(
     crs = 'crs84',
     to_time = dtnow,
     f = 'GeoJSON',
-    coords = [6.00,53.00,17.00,59.00]
+    coords = [3.00,52.00,20.00,65.00]
 )
 
 geo = []
