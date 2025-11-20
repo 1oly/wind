@@ -72,12 +72,13 @@ body > #sidebar {
           </h1>
           <h2>About wind map</h2>
           <p>This wind map is made to show the current wind turbines and wind field in Denmark. 
-            The aim is to have a near-real time presentation of the power production from each individual wind turbine and potentially also a forecast.</p>
+            The estimated current power production of each wind turbine is shown by clicking a turbine.</p>
             <h3>Data sources</h3>
             <ul>
               <li>Basemap is courtesy of <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> and <a href="https://carto.com/attributions">CARTO</a>. </li>
               <li>Wind data is from Harmonie forecast model run by <a href="https://www.dmi.dk">DMI</a> and <a href="https://opendatadocs.dmi.govcloud.dk/DMIOpenData">DMI Open Data</a>.</li>
               <li>Wind turbine data is from <a href="https://ens.dk/service/statistik-data-noegletal-og-kort/download-gis-filer">Energistyrelsen</a> (the Danish Energy Agency). Updated November 2025.</li>
+              <li>Power curves are computed using a generic model in <a href="https://gitlab.windenergy.dtu.dk/TOPFARM/PyWake/">PyWake</a> and by clustering turbine data.</li>
           </ul>
           <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
           <p><a href="https://visitorbadge.io/status?path=https%3A%2F%2Fwind.olly.dk"><img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fwind.olly.dk&label=VISITORS&countColor=%23263759&style=flat-square" /></a></p>
@@ -98,11 +99,20 @@ body > #sidebar {
         </ul>
         <h3>Power production</h3>
         <p></p>
-        <div id="chart" style="width:300px;height:200px;"></div>
+        <div id="chart" style="width:350px;height:200px;"></div>
         <p><i>* Data is taken directly from Energistyrelsen and not quality assured before displaying it here. Wrong infomation may occur.</i></p>
         <h3>Wind forecast</h3>
         <p></p>
         <b>Forecast time:</b> <div class="refDate" style="display: inline"></div> <div class="refTime" style="display: inline"></div>
+        <div class="wind-profile">
+          <div id="windProfileStatus" class="wind-profile-status">Select a turbine to view the wind profile.</div>
+          <div id="windProfileChart" style="width:350px;height:200px;"></div>
+        </div>
+        <h3>Power curve</h3>
+        <div class="power-curve">
+          <div id="powerCurveStatus" class="wind-profile-status">Select a turbine to view the power curve.</div>
+          <div id="powerCurveChart" style="width:350px;height:200px;"></div>
+        </div>
     </div>
   </div>
 </div>
@@ -120,6 +130,380 @@ var CartoDB_DarkMatterNoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/
 	subdomains: 'abcd',
 	maxZoom: 20
 }).addTo(map);
+
+var windProfileChartEl = document.getElementById('windProfileChart');
+var windProfileStatusEl = document.getElementById('windProfileStatus');
+var powerCurveChartEl = document.getElementById('powerCurveChart');
+var powerCurveStatusEl = document.getElementById('powerCurveStatus');
+var WIND_PROFILE_HEIGHTS = ['10m','50m','100m','150m','250m','350m','450m'];
+var windGridCache = {};
+var windGridPromise = null;
+var lastWindProfileRequestId = 0;
+var powerCurvesPromise = null;
+var powerCurveEntries = [];
+var wtlyr = null;
+
+function ensureWindGridsLoaded() {
+  if (!windGridPromise) {
+    windGridPromise = Promise.all(WIND_PROFILE_HEIGHTS.map(function(height) {
+      return fetch('https://raw.githubusercontent.com/1oly/wind/main/script/wind' + height + '.json')
+        .then(function(response) {
+          if (!response.ok) {
+            throw new Error('Failed to fetch wind data for ' + height);
+          }
+          return response.json();
+        })
+        .then(function(records) {
+          windGridCache[height] = buildWindGrid(records);
+        });
+    })).catch(function(error) {
+      console.error(error);
+      windGridPromise = null;
+      throw error;
+    });
+  }
+  return windGridPromise;
+}
+
+function buildWindGrid(records) {
+  var uRecord = records.find(function(record) { return record.header.parameterNumber === 2; });
+  var vRecord = records.find(function(record) { return record.header.parameterNumber === 3; });
+  if (!uRecord || !vRecord) {
+    return null;
+  }
+  var header = uRecord.header;
+  return {
+    header: header,
+    u: uRecord.data,
+    v: vRecord.data,
+    nx: header.nx,
+    ny: header.ny,
+    lo1: header.lo1,
+    la1: header.la1,
+    dx: header.dx,
+    dy: header.dy
+  };
+}
+
+function interpolateWindAt(grid, lon, lat) {
+  if (!grid) return null;
+  var i = (lon - grid.lo1) / grid.dx;
+  var j = (grid.la1 - lat) / grid.dy;
+  if (isNaN(i) || isNaN(j)) return null;
+  if (i < 0 || j < 0 || i > grid.nx - 1 || j > grid.ny - 1) return null;
+  var fi = Math.floor(i);
+  var fj = Math.floor(j);
+  var ci = Math.min(fi + 1, grid.nx - 1);
+  var cj = Math.min(fj + 1, grid.ny - 1);
+  var tx = i - fi;
+  var ty = j - fj;
+
+  function vectorAt(x, y) {
+    var idx = y * grid.nx + x;
+    var uVal = grid.u[idx];
+    var vVal = grid.v[idx];
+    if (uVal === null || vVal === null || typeof uVal === 'undefined' || typeof vVal === 'undefined') {
+      return null;
+    }
+    return [uVal, vVal];
+  }
+
+  var g00 = vectorAt(fi, fj);
+  var g10 = vectorAt(ci, fj);
+  var g01 = vectorAt(fi, cj);
+  var g11 = vectorAt(ci, cj);
+  if (!g00 || !g10 || !g01 || !g11) return null;
+
+  var rx = 1 - tx;
+  var ry = 1 - ty;
+  var a = rx * ry;
+  var b = tx * ry;
+  var c = rx * ty;
+  var d = tx * ty;
+  var u = g00[0] * a + g10[0] * b + g01[0] * c + g11[0] * d;
+  var v = g00[1] * a + g10[1] * b + g01[1] * c + g11[1] * d;
+  var speed = Math.sqrt(u * u + v * v);
+  var direction = null;
+  if (speed > 0) {
+    direction = (Math.atan2(u, v) * 180 / Math.PI + 360) % 360;
+  }
+  return { u: u, v: v, speed: speed, direction: direction };
+}
+
+function updateWindProfileStatus(message) {
+  if (windProfileStatusEl) {
+    windProfileStatusEl.textContent = message || '';
+  }
+}
+
+function updatePowerCurveStatus(message, allowHTML) {
+  if (!powerCurveStatusEl) return;
+  if (allowHTML) {
+    powerCurveStatusEl.innerHTML = message || '';
+  } else {
+    powerCurveStatusEl.textContent = message || '';
+  }
+}
+
+function ensurePowerCurvesLoaded() {
+  if (!powerCurvesPromise) {
+    powerCurvesPromise = fetch('https://raw.githubusercontent.com/1oly/wind/main/power_curves/power_curves.json')
+      .then(function(response) {
+        if (!response.ok) {
+          throw new Error('Power curve file missing');
+        }
+        return response.json();
+      })
+      .then(function(data) {
+        powerCurveEntries = Array.isArray(data.turbines) ? data.turbines : [];
+        return powerCurveEntries;
+      })
+      .catch(function(error) {
+        console.warn('Unable to load power curves', error);
+        powerCurveEntries = [];
+        powerCurvesPromise = null;
+        throw error;
+      });
+  }
+  return powerCurvesPromise;
+}
+
+function selectPowerCurve(capacityKw, hubHeight) {
+  if (!powerCurveEntries.length || typeof capacityKw !== 'number') {
+    return null;
+  }
+  var best = null;
+  var bestScore = Infinity;
+  for (var i = 0; i < powerCurveEntries.length; i++) {
+    var entry = powerCurveEntries[i];
+    var capDiff = Math.abs((entry.capacity_kw || 0) - capacityKw);
+    var heightDiff = Math.abs((entry.hub_height_m || 0) - (hubHeight || 0));
+    var score = capDiff + 0.1 * heightDiff;
+    if (score < bestScore) {
+      bestScore = score;
+      best = entry;
+    }
+  }
+  return best;
+}
+
+function interpolatePowerFromCurve(curve, windSpeed) {
+  if (!curve || !Array.isArray(curve.ws) || !Array.isArray(curve.power_mw)) {
+    return null;
+  }
+  var wsArr = curve.ws;
+  var powerArr = curve.power_mw;
+  if (windSpeed <= wsArr[0]) return powerArr[0];
+  if (windSpeed >= wsArr[wsArr.length - 1]) return powerArr[powerArr.length - 1];
+  for (var i = 0; i < wsArr.length - 1; i++) {
+    var lowerWs = wsArr[i];
+    var upperWs = wsArr[i + 1];
+    if (windSpeed >= lowerWs && windSpeed <= upperWs) {
+      var ratio = (windSpeed - lowerWs) / (upperWs - lowerWs || 1);
+      return powerArr[i] + ratio * (powerArr[i + 1] - powerArr[i]);
+    }
+  }
+  return null;
+}
+
+function interpolateSpeedAtHeight(profile, targetHeight) {
+  if (!profile.length || typeof targetHeight !== 'number' || isNaN(targetHeight)) {
+    return null;
+  }
+  if (targetHeight <= profile[0].height) {
+    return profile[0].speed;
+  }
+  if (targetHeight >= profile[profile.length - 1].height) {
+    return profile[profile.length - 1].speed;
+  }
+  for (var i = 0; i < profile.length - 1; i++) {
+    var lower = profile[i];
+    var upper = profile[i + 1];
+    if (targetHeight >= lower.height && targetHeight <= upper.height) {
+      var ratio = (targetHeight - lower.height) / (upper.height - lower.height || 1);
+      return lower.speed + ratio * (upper.speed - lower.speed);
+    }
+  }
+  return null;
+}
+
+function estimateTurbinePower(windSpeed, ratedPowerMw) {
+  if (typeof windSpeed !== 'number' || isNaN(windSpeed) || typeof ratedPowerMw !== 'number' || isNaN(ratedPowerMw)) {
+    return null;
+  }
+  var cutIn = 3;
+  var rated = 12;
+  var cutOut = 25;
+  if (windSpeed < cutIn || windSpeed >= cutOut) {
+    return 0;
+  }
+  if (windSpeed >= rated) {
+    return ratedPowerMw;
+  }
+  var fraction = (windSpeed - cutIn) / (rated - cutIn);
+  var powerFraction = Math.pow(Math.max(0, Math.min(1, fraction)), 3);
+  return ratedPowerMw * powerFraction;
+}
+
+function plotWindProfileAt(lon, lat, hubHeight) {
+  if (!windProfileChartEl) return Promise.resolve(null);
+  var requestId = ++lastWindProfileRequestId;
+  updateWindProfileStatus('Loading wind profile…');
+  return ensureWindGridsLoaded().then(function() {
+    if (requestId !== lastWindProfileRequestId) {
+      return null;
+    }
+    var profile = [];
+    WIND_PROFILE_HEIGHTS.forEach(function(height) {
+      var grid = windGridCache[height];
+      if (!grid) return;
+      var result = interpolateWindAt(grid, lon, lat);
+      if (result) {
+        profile.push({
+          height: parseInt(height, 10),
+          speed: result.speed,
+          direction: result.direction
+        });
+      }
+    });
+    profile.sort(function(a, b) { return a.height - b.height; });
+    if (!profile.length) {
+      Plotly.purge(windProfileChartEl);
+      updateWindProfileStatus('No wind profile data available here.');
+      return {profile: profile, hubSpeed: null};
+    }
+    var speeds = profile.map(function(p) { return p.speed; });
+    var heights = profile.map(function(p) { return p.height; });
+    var shapes = [];
+    var annotations = [];
+    if (typeof hubHeight === 'number' && !isNaN(hubHeight)) {
+      shapes.push({
+        type: 'line',
+        xref: 'paper',
+        yref: 'y',
+        x0: 0,
+        x1: 1,
+        y0: hubHeight,
+        y1: hubHeight,
+        line: {
+          color: '#888',
+          width: 1,
+          dash: 'dash'
+        }
+      });
+      annotations.push({
+        xref: 'paper',
+        yref: 'y',
+        x: 0.01,
+        y: hubHeight,
+        text: 'Hub height',
+        showarrow: false,
+        font: {size: 10, color: '#666'},
+        yshift: 10,
+        align: 'left'
+      });
+    }
+    Plotly.newPlot(windProfileChartEl, [{
+      x: speeds,
+      y: heights,
+      mode: 'lines+markers',
+      name: 'Wind speed',
+      hovertemplate: 'Height: %{y} m<br>Speed: %{x:.1f} m/s<extra></extra>'
+    }], {
+      margin: {l: 50, r: 10, t: 10, b: 35},
+      xaxis: {title: 'Wind speed (m/s)'},
+      yaxis: {title: 'Height (m)'},
+      shapes: shapes,
+      annotations: annotations
+    }, {responsive: true, displayModeBar: false});
+    updateWindProfileStatus('');
+    var hubSpeed = interpolateSpeedAtHeight(profile, hubHeight);
+    return {profile: profile, hubSpeed: hubSpeed};
+  }).catch(function(error) {
+    Plotly.purge(windProfileChartEl);
+    updateWindProfileStatus('Failed to load wind profile data.');
+    throw error;
+  });
+}
+
+function renderPowerCurve(curveData, hubSpeed, ratedPowerMw) {
+  if (!powerCurveChartEl) return;
+  if (curveData && Array.isArray(curveData.ws) && Array.isArray(curveData.power_mw)) {
+    var traces = [{
+      x: curveData.ws,
+      y: curveData.power_mw,
+      mode: 'lines',
+      name: curveData.name || 'Power curve',
+      hovertemplate: 'Wind: %{x:.1f} m/s<br>Power: %{y:.2f} MW<extra></extra>'
+    }];
+    var pointPower = null;
+    if (typeof hubSpeed === 'number' && !isNaN(hubSpeed)) {
+      pointPower = interpolatePowerFromCurve(curveData, hubSpeed);
+      traces.push({
+        x: [hubSpeed],
+        y: [pointPower],
+        mode: 'markers',
+        name: 'Current wind',
+        marker: {color: '#d62728', size: 8},
+        hovertemplate: 'Current wind<br>Wind: %{x:.1f} m/s<br>Power: %{y:.2f} MW<extra></extra>'
+      });
+      var link = '<a href="https://gitlab.windenergy.dtu.dk/TOPFARM/PyWake" target="_blank" rel="noopener">PyWake</a>';
+      updatePowerCurveStatus(curveData.name ? 'Generic power curve ' + curveData.name + ' made with ' + link : '', true);
+    } else {
+      updatePowerCurveStatus('No hub-height wind speed available.');
+    }
+    Plotly.newPlot(powerCurveChartEl, traces, {
+      margin: {l: 50, r: 10, t: 10, b: 40},
+      xaxis: {title: 'Wind speed (m/s)'},
+      yaxis: {title: 'Power (MW)'},
+      showlegend: false
+    }, {responsive: true, displayModeBar: false});
+    return;
+  }
+  renderGenericPowerCurve(hubSpeed, ratedPowerMw);
+}
+
+function renderGenericPowerCurve(hubSpeed, ratedPowerMw) {
+  if (!powerCurveChartEl) return;
+  if (typeof ratedPowerMw !== 'number' || isNaN(ratedPowerMw) || ratedPowerMw <= 0) {
+    Plotly.purge(powerCurveChartEl);
+    updatePowerCurveStatus('No turbine capacity data available.');
+    return;
+  }
+  var speeds = [];
+  var powers = [];
+  for (var speed = 0; speed <= 30; speed += 0.5) {
+    speeds.push(Number(speed.toFixed(1)));
+    powers.push(estimateTurbinePower(speed, ratedPowerMw));
+  }
+  var traces = [{
+    x: speeds,
+    y: powers,
+    mode: 'lines',
+    name: 'Generic power curve',
+    hovertemplate: 'Wind: %{x:.1f} m/s<br>Power: %{y:.2f} MW<extra></extra>'
+  }];
+  if (typeof hubSpeed === 'number' && !isNaN(hubSpeed)) {
+    var currentPower = estimateTurbinePower(hubSpeed, ratedPowerMw);
+    traces.push({
+      x: [hubSpeed],
+      y: [currentPower],
+      mode: 'markers',
+      name: 'Current wind',
+      marker: {color: '#d62728', size: 8},
+      hovertemplate: 'Current wind<br>Wind: %{x:.1f} m/s<br>Power: %{y:.2f} MW<extra></extra>'
+    });
+    updatePowerCurveStatus('Generic power curve');
+  } else {
+    updatePowerCurveStatus('No hub-height wind speed available.');
+  }
+  Plotly.newPlot(powerCurveChartEl, traces, {
+    margin: {l: 50, r: 10, t: 10, b: 40},
+    xaxis: {title: 'Wind speed (m/s)'},
+    yaxis: {title: 'Power (MW)'},
+    showlegend: false
+  }, {responsive: true, displayModeBar: false});
+}
 
 function getRad_wt(d) {
     return d < 1 ? 1:
@@ -159,6 +543,25 @@ function onEachFeature(feature, layer) {
           $(".date_decom").html((feature.properties.date_decom !== null) ? feature.properties.date_decom.split('T')[0] : '');
           //$(".wind_speed").html(getWindSpeed(e));
           getData(feature);
+          var capacityMw = feature.properties.capacity_kW/1000;
+          var capacityKw = feature.properties.capacity_kW;
+          updatePowerCurveStatus('Loading power curve…');
+          var profilePromise = plotWindProfileAt(e.latlng.lng, e.latlng.lat, feature.properties.hub_height_m);
+          var curvePromise = ensurePowerCurvesLoaded().catch(function() {
+            updatePowerCurveStatus('Power curve data unavailable, using generic curve.');
+            return null;
+          });
+          Promise.all([profilePromise, curvePromise]).then(function(results) {
+            var profileResult = results[0];
+            if (!profileResult) return;
+            var curve = selectPowerCurve(capacityKw, feature.properties.hub_height_m);
+            renderPowerCurve(curve, profileResult.hubSpeed, capacityMw);
+          }).catch(function() {
+            if (powerCurveChartEl) {
+              Plotly.purge(powerCurveChartEl);
+            }
+            updatePowerCurveStatus('Failed to load power curve data.');
+          });
         });
       }
 }
@@ -175,14 +578,13 @@ function circleMarker(feature, latlng) {
 }
 
 // WIND TURBINES
-var wtlyr = null;
 $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/wt_2025jan.json", function(wt) {
-wtlyr = L.geoJSON(wt, {
-  pointToLayer: circleMarker,
-  onEachFeature: onEachFeature
-}).addTo(map);
-layerControl.addOverlay(wtlyr, 'Wind turbines');
-map.fitBounds(wtlyr.getBounds());
+  wtlyr = L.geoJSON(wt, {
+    pointToLayer: circleMarker,
+    onEachFeature: onEachFeature
+  }).addTo(map);
+  layerControl.addOverlay(wtlyr, 'Wind turbines');
+  map.fitBounds(wtlyr.getBounds());
 });
 
 map.on('zoomend', function() {
