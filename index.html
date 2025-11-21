@@ -21,6 +21,155 @@ body > #sidebar {
             display: none;
 }
 
+.filter-range {
+    margin-bottom: 12px;
+}
+
+.filter-range-display {
+    font-size: 9pt;
+    color: #ddd;
+    margin-bottom: 6px;
+}
+
+.filter-range-sliders {
+    position: relative;
+    height: 30px;
+    margin-top: 4px;
+}
+
+.filter-range-sliders input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 30px;
+    background: none;
+    pointer-events: none;
+}
+
+.filter-range-sliders input[type=range]::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 4px;
+    background: transparent;
+}
+
+.filter-range-sliders input[type=range]::-moz-range-track {
+    height: 4px;
+    border-radius: 4px;
+    background: transparent;
+}
+
+.filter-range-sliders input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    pointer-events: auto;
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #1f8ef1;
+    margin-top: -5px;
+}
+
+.filter-range-sliders input[type=range]::-moz-range-thumb {
+    pointer-events: auto;
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #1f8ef1;
+}
+
+.filter-range-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 4px;
+    margin-top: -2px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.filter-range-track::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: 4px;
+}
+
+.filter-group {
+    margin-bottom: 10px;
+}
+
+.filter-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.filter-group select,
+.filter-group input {
+    width: 100%;
+    padding: 4px;
+    box-sizing: border-box;
+    font-size: 10pt;
+}
+
+.filter-inline-inputs {
+    display: flex;
+    gap: 6px;
+}
+
+.filter-inline-inputs input {
+    flex: 1;
+}
+
+.filter-actions {
+    margin-top: 12px;
+}
+
+#applyFiltersBtn {
+    background: #1f8ef1;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    padding: 6px 12px;
+    font-size: 10pt;
+    cursor: pointer;
+}
+
+#applyFiltersBtn:disabled {
+    background: #777;
+    cursor: not-allowed;
+}
+
+.filter-results {
+    margin-top: 10px;
+    font-size: 9pt;
+    color: #ddd;
+}
+
+.filter-stats {
+    margin-top: 12px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.filter-stat-line {
+    font-size: 9pt;
+    margin-bottom: 6px;
+}
+
+.filter-histogram {
+    width: 100%;
+    height: 180px;
+}
+
 </style>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -58,6 +207,7 @@ body > #sidebar {
       <ul role="tablist">
           <li><a href="#home" role="tab"><i class="fa fa-bars active"></i></a></li>
           <li><a href="#wind" role="tab"><i class="fa fa-wind active"></i></a></li>
+          <li><a href="#filters" role="tab"><i class="fa fa-filter"></i></a></li>
           <li><a href="https://github.com/1oly/wind"><i class="fa-brands fa-github"></i></a></li>
           <li><a href="https://olly.dk"><i class="fa fa-home"></i></a></li>
       </ul>
@@ -98,7 +248,7 @@ body > #sidebar {
         <li><b>Date decomissioned:</b> <div class="date_decom" style="display: inline"></div></li>
         </ul>
         <h3>Power production</h3>
-        <p></p>
+        <p>When the turbine belongs to a wind farm, the displayed production typically reflects the farm's total output</p>      
         <div id="chart" style="width:350px;height:200px;"></div>
         <p><i>* Data is taken directly from Energistyrelsen and not quality assured before displaying it here. Wrong infomation may occur.</i></p>
         <h3>Wind forecast</h3>
@@ -114,6 +264,81 @@ body > #sidebar {
           <div id="powerCurveChart" style="width:350px;height:200px;"></div>
         </div>
     </div>
+    <div class="leaflet-sidebar-pane" id="filters">
+      <h1 class="leaflet-sidebar-header">
+          Filter turbines
+          <span class="leaflet-sidebar-close"><i class="fa fa-caret-left"></i></span>
+      </h1>
+      <p>Filter the turbines by properties</p>
+      <div class="filter-group">
+        <label for="filterManufacturer">Manufacturer</label>
+        <select id="filterManufacturer">
+          <option value="">Any</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="filterLocation">Location</label>
+        <select id="filterLocation">
+          <option value="">Any</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="filterAuthority">Authority</label>
+        <select id="filterAuthority">
+          <option value="">Any</option>
+        </select>
+      </div>
+      <div class="filter-group filter-range">
+        <label>Capacity (kW)</label>
+        <div class="filter-range-display" id="capacityRangeDisplay">Loading…</div>
+        <div class="filter-range-sliders">
+          <div class="filter-range-track" id="capacityRangeTrack"></div>
+          <input type="range" id="filterCapacityMin" min="0" max="0" step="1">
+          <input type="range" id="filterCapacityMax" min="0" max="0" step="1">
+        </div>
+      </div>
+      <div class="filter-group filter-range">
+        <label>Rotor diameter (m)</label>
+        <div class="filter-range-display" id="rotorRangeDisplay">Loading…</div>
+        <div class="filter-range-sliders">
+          <div class="filter-range-track" id="rotorRangeTrack"></div>
+          <input type="range" id="filterRotorMin" min="0" max="0" step="0.1">
+          <input type="range" id="filterRotorMax" min="0" max="0" step="0.1">
+        </div>
+      </div>
+      <div class="filter-group filter-range">
+        <label>Hub height (m)</label>
+        <div class="filter-range-display" id="hubRangeDisplay">Loading…</div>
+        <div class="filter-range-sliders">
+          <div class="filter-range-track" id="hubRangeTrack"></div>
+          <input type="range" id="filterHubMin" min="0" max="0" step="0.1">
+          <input type="range" id="filterHubMax" min="0" max="0" step="0.1">
+        </div>
+      </div>
+      <div class="filter-group">
+        <label>Date connected</label>
+        <div class="filter-inline-inputs">
+          <input type="date" id="filterDateConnectStart">
+          <input type="date" id="filterDateConnectEnd">
+        </div>
+      </div>
+      <div class="filter-group">
+        <label for="filterStatus">Operational status</label>
+        <select id="filterStatus">
+          <option value="">Any</option>
+          <option value="operational">In operation</option>
+          <option value="decommissioned">Decommissioned</option>
+        </select>
+      </div>
+      <div class="filter-actions">
+        <button type="button" id="applyFiltersBtn" disabled>Show</button>
+      </div>
+      <div class="filter-stats">
+        <div id="filterCapacitySum" class="filter-stat-line">Total capacity: –</div>
+        <div id="filterCapacityHistogram" class="filter-histogram">Histogram available when turbines include capacity data.</div>
+      </div>
+      <div id="filterResults" class="filter-results">Loading turbine data…</div>
+    </div>
   </div>
 </div>
 
@@ -123,8 +348,6 @@ body > #sidebar {
 
 var map = new L.Map('map',{ zoomControl: false })
 map.attributionControl.addAttribution('<a href="https://confluence.govcloud.dk/display/FDAPI/Danish+Meteorological+Institute+-+Open+Data">&copy; DMI</a>');
-var layerControl = L.control.layers().addTo(map);
-
 var CartoDB_DarkMatterNoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
 	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
 	subdomains: 'abcd',
@@ -142,6 +365,34 @@ var lastWindProfileRequestId = 0;
 var powerCurvesPromise = null;
 var powerCurveEntries = [];
 var wtlyr = null;
+var allTurbineFeatures = [];
+var filterManufacturerEl = document.getElementById('filterManufacturer');
+var filterLocationEl = document.getElementById('filterLocation');
+var filterAuthorityEl = document.getElementById('filterAuthority');
+var filterCapacityMinEl = document.getElementById('filterCapacityMin');
+var filterCapacityMaxEl = document.getElementById('filterCapacityMax');
+var filterRotorMinEl = document.getElementById('filterRotorMin');
+var filterRotorMaxEl = document.getElementById('filterRotorMax');
+var filterHubMinEl = document.getElementById('filterHubMin');
+var filterHubMaxEl = document.getElementById('filterHubMax');
+var capacityRangeDisplayEl = document.getElementById('capacityRangeDisplay');
+var rotorRangeDisplayEl = document.getElementById('rotorRangeDisplay');
+var hubRangeDisplayEl = document.getElementById('hubRangeDisplay');
+var capacityRangeTrackEl = document.getElementById('capacityRangeTrack');
+var rotorRangeTrackEl = document.getElementById('rotorRangeTrack');
+var hubRangeTrackEl = document.getElementById('hubRangeTrack');
+var filterDateConnectStartEl = document.getElementById('filterDateConnectStart');
+var filterDateConnectEndEl = document.getElementById('filterDateConnectEnd');
+var filterStatusEl = document.getElementById('filterStatus');
+var filterResultsEl = document.getElementById('filterResults');
+var filterCapacitySumEl = document.getElementById('filterCapacitySum');
+var filterHistogramEl = document.getElementById('filterCapacityHistogram');
+var applyFiltersBtn = document.getElementById('applyFiltersBtn');
+var RANGE_EPSILON = 1e-6;
+
+if (applyFiltersBtn) {
+  applyFiltersBtn.addEventListener('click', applyFilters);
+}
 
 function ensureWindGridsLoaded() {
   if (!windGridPromise) {
@@ -505,6 +756,384 @@ function renderGenericPowerCurve(hubSpeed, ratedPowerMw) {
   }, {responsive: true, displayModeBar: false});
 }
 
+function renderTurbineCollection(features, options) {
+  if (wtlyr) {
+    map.removeLayer(wtlyr);
+    wtlyr = null;
+  }
+  var validFeatures = Array.isArray(features) ? features.filter(function(feature) {
+    return feature && feature.geometry && feature.geometry.type === 'Point' && Array.isArray(feature.geometry.coordinates);
+  }) : [];
+  if (!validFeatures.length) {
+    return 0;
+  }
+  wtlyr = L.geoJSON({
+    type: 'FeatureCollection',
+    features: validFeatures
+  }, {
+    pointToLayer: circleMarker,
+    onEachFeature: onEachFeature
+  }).addTo(map);
+  var shouldFit = !options || options.fitBounds !== false;
+  if (shouldFit) {
+    var bounds = wtlyr.getBounds();
+    if (bounds && typeof bounds.isValid === 'function' && bounds.isValid()) {
+      var padding = options && typeof options.boundsPadding === 'number' ? options.boundsPadding : 0.15;
+      map.fitBounds(bounds.pad(padding));
+    }
+  }
+  return validFeatures.length;
+}
+
+function populateFilterOptions(features) {
+  if (!Array.isArray(features) || !features.length) return;
+  setSelectOptions(filterManufacturerEl, getUniqueValues(features, 'manufacturer'));
+  setSelectOptions(filterLocationEl, getUniqueValues(features, 'location'));
+  setSelectOptions(filterAuthorityEl, getUniqueValues(features, 'auth'));
+  if (applyFiltersBtn) {
+    applyFiltersBtn.disabled = false;
+  }
+  updateFilterResults('Choose any combination of manufacturer, location, size, capacity, dates, or status filters, then press Show to highlight matching turbines.');
+}
+
+function translateLocation(value) {
+  if (value === 'HAV') return 'Offshore';
+  if (value === 'LAND') return 'Onshore';
+  return value;
+}
+
+function getUniqueValues(features, key) {
+  var seen = {};
+  var values = [];
+  for (var i = 0; i < features.length; i++) {
+    var props = features[i].properties || {};
+    var rawValue = props[key];
+    if (rawValue === null || typeof rawValue === 'undefined' || rawValue === '') {
+      continue;
+    }
+    var normalized = String(rawValue);
+    if (!Object.prototype.hasOwnProperty.call(seen, normalized)) {
+      seen[normalized] = true;
+      values.push(rawValue);
+    }
+  }
+  values.sort(function(a, b) {
+    var aStr = String(a).toLowerCase();
+    var bStr = String(b).toLowerCase();
+    if (aStr < bStr) return -1;
+    if (aStr > bStr) return 1;
+    return 0;
+  });
+  return values;
+}
+
+function setSelectOptions(selectEl, values) {
+  if (!selectEl) return;
+  selectEl.innerHTML = '';
+  var defaultOpt = document.createElement('option');
+  defaultOpt.value = '';
+  defaultOpt.textContent = 'Any';
+  selectEl.appendChild(defaultOpt);
+  if (!Array.isArray(values)) return;
+  values.forEach(function(value) {
+    var translated = translateLocation(value);
+    var option = document.createElement('option');
+    option.value = String(value);
+    option.textContent = String(translated);
+    selectEl.appendChild(option);
+  });
+}
+
+function updateFilterResults(message) {
+  if (!filterResultsEl) return;
+  filterResultsEl.textContent = message || '';
+}
+
+function createRangeFormatter(decimals, unit) {
+  return function(value) {
+    if (typeof value !== 'number' || isNaN(value)) return '—';
+    return value.toLocaleString('da-DK', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    }) + (unit ? ' ' + unit : '');
+  };
+}
+
+function getNumericRange(features, key) {
+  var min = Infinity;
+  var max = -Infinity;
+  if (Array.isArray(features)) {
+    features.forEach(function(feature) {
+      var props = feature && feature.properties ? feature.properties : {};
+      var value = typeof props[key] === 'number' ? props[key] : parseFloat(props[key]);
+      if (typeof value === 'number' && !isNaN(value)) {
+        min = Math.min(min, value);
+        max = Math.max(max, value);
+      }
+    });
+  }
+  if (!isFinite(min) || !isFinite(max)) {
+    return null;
+  }
+  return {min: min, max: max};
+}
+
+function updateRangeTrack(minSlider, maxSlider, trackEl) {
+  if (!trackEl || !minSlider || !maxSlider) return;
+  var minVal = parseFloat(minSlider.value);
+  var maxVal = parseFloat(maxSlider.value);
+  var minLimit = parseFloat(minSlider.min);
+  var maxLimit = parseFloat(minSlider.max);
+  var range = maxLimit - minLimit;
+  if (!isFinite(range) || range <= 0) {
+    trackEl.style.background = '';
+    return;
+  }
+  var startPercent = ((minVal - minLimit) / range) * 100;
+  var endPercent = ((maxVal - minLimit) / range) * 100;
+  trackEl.style.background = 'linear-gradient(to right, rgba(255,255,255,0.2) ' + startPercent + '%, #1f8ef1 ' + startPercent + '%, #1f8ef1 ' + endPercent + '%, rgba(255,255,255,0.2) ' + endPercent + '%)';
+}
+
+function configureRangeControl(minSlider, maxSlider, displayEl, trackEl, range, options) {
+  if (!minSlider || !maxSlider || !range) {
+    if (displayEl) displayEl.textContent = 'No data available';
+    if (minSlider) minSlider.disabled = true;
+    if (maxSlider) maxSlider.disabled = true;
+    if (trackEl) trackEl.style.background = '';
+    return;
+  }
+  var step = options && typeof options.step === 'number' ? options.step : 1;
+  var formatter = options && typeof options.format === 'function' ? options.format : function(val) { return val; };
+  minSlider.disabled = false;
+  maxSlider.disabled = false;
+  minSlider.min = range.min;
+  minSlider.max = range.max;
+  minSlider.step = step;
+  maxSlider.min = range.min;
+  maxSlider.max = range.max;
+  maxSlider.step = step;
+  minSlider.value = range.min;
+  maxSlider.value = range.max;
+  minSlider.dataset.fullMin = range.min;
+  minSlider.dataset.fullMax = range.max;
+  maxSlider.dataset.fullMin = range.min;
+  maxSlider.dataset.fullMax = range.max;
+
+  function renderDisplay() {
+    if (!displayEl) return;
+    var minVal = parseFloat(minSlider.value);
+    var maxVal = parseFloat(maxSlider.value);
+    if ((isNaN(minVal) || Math.abs(minVal - range.min) < RANGE_EPSILON) &&
+        (isNaN(maxVal) || Math.abs(maxVal - range.max) < RANGE_EPSILON)) {
+      displayEl.textContent = 'Any';
+    } else {
+      displayEl.textContent = formatter(minVal) + ' – ' + formatter(maxVal);
+    }
+    updateRangeTrack(minSlider, maxSlider, trackEl);
+  }
+
+  function handleInput(event) {
+    var minVal = parseFloat(minSlider.value);
+    var maxVal = parseFloat(maxSlider.value);
+    if (minVal > maxVal) {
+      if (event && event.target === minSlider) {
+        maxSlider.value = minVal;
+      } else if (event && event.target === maxSlider) {
+        minSlider.value = maxVal;
+      }
+    }
+    renderDisplay();
+  }
+
+  minSlider.addEventListener('input', handleInput);
+  maxSlider.addEventListener('input', handleInput);
+  renderDisplay();
+}
+
+function getActiveRangeSelection(minSlider, maxSlider) {
+  var inactive = {min: NaN, max: NaN};
+  if (!minSlider || !maxSlider) return inactive;
+  var minVal = parseFloat(minSlider.value);
+  var maxVal = parseFloat(maxSlider.value);
+  var fullMin = parseFloat(minSlider.dataset.fullMin);
+  var fullMax = parseFloat(maxSlider.dataset.fullMax);
+  var activeMin = (!isNaN(minVal) && !isNaN(fullMin) && minVal > fullMin + RANGE_EPSILON) ? minVal : NaN;
+  var activeMax = (!isNaN(maxVal) && !isNaN(fullMax) && maxVal < fullMax - RANGE_EPSILON) ? maxVal : NaN;
+  return {min: activeMin, max: activeMax};
+}
+
+function initializeRangeControls(features) {
+  var capacityRange = getNumericRange(features, 'capacity_kW');
+  configureRangeControl(
+    filterCapacityMinEl,
+    filterCapacityMaxEl,
+    capacityRangeDisplayEl,
+    capacityRangeTrackEl,
+    capacityRange,
+    {step: 10, format: createRangeFormatter(0, 'kW')}
+  );
+  var rotorRange = getNumericRange(features, 'rotor_diam_m');
+  configureRangeControl(
+    filterRotorMinEl,
+    filterRotorMaxEl,
+    rotorRangeDisplayEl,
+    rotorRangeTrackEl,
+    rotorRange,
+    {step: 0.1, format: createRangeFormatter(1, 'm')}
+  );
+  var hubRange = getNumericRange(features, 'hub_height_m');
+  configureRangeControl(
+    filterHubMinEl,
+    filterHubMaxEl,
+    hubRangeDisplayEl,
+    hubRangeTrackEl,
+    hubRange,
+    {step: 0.1, format: createRangeFormatter(1, 'm')}
+  );
+}
+
+function formatMegawatts(value) {
+  if (typeof value !== 'number' || isNaN(value)) return '0';
+  return value.toLocaleString('da-DK', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+}
+
+function updateFilterStatistics(features) {
+  if (!filterCapacitySumEl || !filterHistogramEl) return;
+  var totalCapacityKw = 0;
+  var capacityValuesMw = [];
+  if (Array.isArray(features)) {
+    features.forEach(function(feature) {
+      var props = feature && feature.properties ? feature.properties : {};
+      var cap = typeof props.capacity_kW === 'number' ? props.capacity_kW : parseFloat(props.capacity_kW);
+      if (typeof cap === 'number' && !isNaN(cap)) {
+        totalCapacityKw += cap;
+        capacityValuesMw.push(cap / 1000);
+      }
+    });
+  }
+  var countDesc = capacityValuesMw.length === 1 ? 'turbine with data' : 'turbines with data';
+  filterCapacitySumEl.textContent = 'Total capacity: ' + formatMegawatts(totalCapacityKw / 1000) + ' MW (' + capacityValuesMw.length + ' ' + countDesc + ')';
+  if (!capacityValuesMw.length) {
+    Plotly.purge(filterHistogramEl);
+    filterHistogramEl.textContent = 'Histogram available when turbines include capacity data.';
+    return;
+  }
+  filterHistogramEl.textContent = '';
+  Plotly.newPlot(filterHistogramEl, [{
+    x: capacityValuesMw,
+    type: 'histogram',
+    marker: {color: '#1f8ef1'}
+  }], {
+    margin: {l: 35, r: 10, t: 10, b: 35},
+    xaxis: {title: 'Capacity (MW)', tickfont: {size: 10}},
+    yaxis: {title: 'Turbines', tickfont: {size: 10}},
+    bargap: 0.05
+  }, {displayModeBar: false, responsive: true});
+}
+
+function getDateInputValue(inputEl) {
+  if (!inputEl || !inputEl.value) return null;
+  var date = new Date(inputEl.value);
+  var time = date.getTime();
+  return isNaN(time) ? null : time;
+}
+
+function parseFeatureDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    var timeFromDate = value.getTime();
+    return isNaN(timeFromDate) ? null : timeFromDate;
+  }
+  if (typeof value === 'number') {
+    return isNaN(value) ? null : value;
+  }
+  var parsed = new Date(value);
+  var timestamp = parsed.getTime();
+  if (!isNaN(timestamp)) {
+    return timestamp;
+  }
+  if (typeof value === 'string') {
+    var shortValue = value.split('T')[0];
+    var parsedShort = new Date(shortValue);
+    var shortTimestamp = parsedShort.getTime();
+    if (!isNaN(shortTimestamp)) {
+      return shortTimestamp;
+    }
+  }
+  return null;
+}
+
+function hasDecommissionDate(value) {
+  return !(value === null || typeof value === 'undefined' || value === '');
+}
+
+function applyFilters() {
+  if (!allTurbineFeatures.length) {
+    updateFilterResults('Wind turbine data is still loading. Please try again in a moment.');
+    return;
+  }
+  var manufacturer = filterManufacturerEl ? filterManufacturerEl.value : '';
+  var locationVal = filterLocationEl ? filterLocationEl.value : '';
+  var authority = filterAuthorityEl ? filterAuthorityEl.value : '';
+  var capacityRangeSelection = getActiveRangeSelection(filterCapacityMinEl, filterCapacityMaxEl);
+  var minCap = capacityRangeSelection.min;
+  var maxCap = capacityRangeSelection.max;
+  var rotorRangeSelection = getActiveRangeSelection(filterRotorMinEl, filterRotorMaxEl);
+  var minRotor = rotorRangeSelection.min;
+  var maxRotor = rotorRangeSelection.max;
+  var hubRangeSelection = getActiveRangeSelection(filterHubMinEl, filterHubMaxEl);
+  var minHub = hubRangeSelection.min;
+  var maxHub = hubRangeSelection.max;
+  var startDate = getDateInputValue(filterDateConnectStartEl);
+  var endDate = getDateInputValue(filterDateConnectEndEl);
+  var status = filterStatusEl ? filterStatusEl.value : '';
+  if (startDate && endDate && endDate < startDate) {
+    var tmpDate = startDate;
+    startDate = endDate;
+    endDate = tmpDate;
+  }
+  var matches = allTurbineFeatures.filter(function(feature) {
+    var props = feature.properties || {};
+    if (manufacturer && props.manufacturer !== manufacturer) return false;
+    if (locationVal && props.location !== locationVal) return false;
+    if (authority && props.auth !== authority) return false;
+    if (!isNaN(minCap) && (typeof props.capacity_kW !== 'number' || props.capacity_kW < minCap)) return false;
+    if (!isNaN(maxCap) && (typeof props.capacity_kW !== 'number' || props.capacity_kW > maxCap)) return false;
+     if (!isNaN(minRotor) && (typeof props.rotor_diam_m !== 'number' || props.rotor_diam_m < minRotor)) return false;
+     if (!isNaN(maxRotor) && (typeof props.rotor_diam_m !== 'number' || props.rotor_diam_m > maxRotor)) return false;
+     if (!isNaN(minHub) && (typeof props.hub_height_m !== 'number' || props.hub_height_m < minHub)) return false;
+     if (!isNaN(maxHub) && (typeof props.hub_height_m !== 'number' || props.hub_height_m > maxHub)) return false;
+     var dateConnectedTs = parseFeatureDate(props.date_connect);
+     if (startDate && (dateConnectedTs === null || dateConnectedTs < startDate)) return false;
+     if (endDate && (dateConnectedTs === null || dateConnectedTs > endDate)) return false;
+     var decommissioned = hasDecommissionDate(props.date_decom);
+     if (status === 'operational' && decommissioned) return false;
+     if (status === 'decommissioned' && !decommissioned) return false;
+    return true;
+  });
+  updateFilterStatistics(matches);
+  if (!matches.length) {
+    updateFilterResults('No turbines matched the selected filters.');
+    renderTurbineCollection([], {fitBounds: false});
+    return;
+  }
+  var matchesWithGeometry = matches.filter(function(feature) {
+    return feature.geometry && feature.geometry.type === 'Point' && Array.isArray(feature.geometry.coordinates);
+  });
+  if (!matchesWithGeometry.length) {
+    updateFilterResults(matches.length + ' turbine(s) matched the filters, but none have coordinates in the dataset.');
+    renderTurbineCollection([], {fitBounds: false});
+    return;
+  }
+  var shown = renderTurbineCollection(matchesWithGeometry, {fitBounds: true});
+  if (matchesWithGeometry.length < matches.length) {
+    var missing = matches.length - matchesWithGeometry.length;
+    updateFilterResults('Showing ' + shown + ' turbine(s). ' + missing + ' additional match(es) have no coordinates and cannot be mapped.');
+  } else {
+    updateFilterResults('Showing ' + shown + ' turbine(s).');
+  }
+}
+
 function getRad_wt(d) {
     return d < 1 ? 1:
            d**0.6;
@@ -579,12 +1208,16 @@ function circleMarker(feature, latlng) {
 
 // WIND TURBINES
 $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/wt_2025jan.json", function(wt) {
-  wtlyr = L.geoJSON(wt, {
-    pointToLayer: circleMarker,
-    onEachFeature: onEachFeature
-  }).addTo(map);
-  layerControl.addOverlay(wtlyr, 'Wind turbines');
-  map.fitBounds(wtlyr.getBounds());
+  allTurbineFeatures = Array.isArray(wt.features) ? wt.features.slice() : [];
+  populateFilterOptions(allTurbineFeatures);
+  initializeRangeControls(allTurbineFeatures);
+  updateFilterStatistics(allTurbineFeatures);
+  var shown = renderTurbineCollection(allTurbineFeatures, {fitBounds: true});
+  if (shown > 0) {
+    updateFilterResults('Showing ' + shown + ' turbine(s). Adjust the filters and press Show to narrow the selection.');
+  } else {
+    updateFilterResults('Turbine data loaded, but none include coordinates to display on the map.');
+  }
 });
 
 map.on('zoomend', function() {
@@ -610,7 +1243,6 @@ $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind10m.json"
   }).addTo(map);
   $(".refDate").html(data[0].header.refTime.substr(0, 10));
   $(".refTime").html(data[0].header.refTime.substr(11, 8));
-  layerControl.addOverlay(velocityLayer, "Wind 10m");
 });
 
 var sidebar = L.control.sidebar({
