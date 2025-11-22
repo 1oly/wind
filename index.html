@@ -17,6 +17,39 @@ html, #map {
     padding: 0;
 }
 
+.fleet-estimate-panel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    font-size: 10pt;
+    max-width: 260px;
+    z-index: 500;
+}
+
+.fleet-estimate-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 9pt;
+    color: #ddd;
+}
+
+.fleet-estimate-status {
+    font-size: 11pt;
+    margin-bottom: 2px;
+}
+
+.fleet-estimate-details {
+    font-size: 9pt;
+    color: #bbb;
+}
+
 body > #sidebar {
             display: none;
 }
@@ -344,6 +377,11 @@ body > #sidebar {
 
 
 <div id="map"></div>
+<div id="fleetEstimatePanel" class="fleet-estimate-panel">
+  <div class="fleet-estimate-title">Wind turbines</div>
+  <div id="fleetEstimateStatus" class="fleet-estimate-status">Loading wind data…</div>
+  <div id="fleetEstimateDetails" class="fleet-estimate-details"></div>
+</div>
 <script>
 
 var map = new L.Map('map',{ zoomControl: false })
@@ -358,6 +396,8 @@ var windProfileChartEl = document.getElementById('windProfileChart');
 var windProfileStatusEl = document.getElementById('windProfileStatus');
 var powerCurveChartEl = document.getElementById('powerCurveChart');
 var powerCurveStatusEl = document.getElementById('powerCurveStatus');
+var fleetEstimateStatusEl = document.getElementById('fleetEstimateStatus');
+var fleetEstimateDetailsEl = document.getElementById('fleetEstimateDetails');
 var WIND_PROFILE_HEIGHTS = ['10m','50m','100m','150m','250m','350m','450m'];
 var windGridCache = {};
 var windGridPromise = null;
@@ -366,6 +406,7 @@ var powerCurvesPromise = null;
 var powerCurveEntries = [];
 var wtlyr = null;
 var allTurbineFeatures = [];
+var displayedTurbineFeatures = [];
 var filterManufacturerEl = document.getElementById('filterManufacturer');
 var filterLocationEl = document.getElementById('filterLocation');
 var filterAuthorityEl = document.getElementById('filterAuthority');
@@ -388,7 +429,12 @@ var filterResultsEl = document.getElementById('filterResults');
 var filterCapacitySumEl = document.getElementById('filterCapacitySum');
 var filterHistogramEl = document.getElementById('filterCapacityHistogram');
 var applyFiltersBtn = document.getElementById('applyFiltersBtn');
+if (filterStatusEl) {
+  filterStatusEl.value = 'operational';
+}
 var RANGE_EPSILON = 1e-6;
+var fleetEstimateRequestId = 0;
+var fleetEstimateTimeoutId = null;
 
 if (applyFiltersBtn) {
   applyFiltersBtn.addEventListener('click', applyFilters);
@@ -496,6 +542,32 @@ function updatePowerCurveStatus(message, allowHTML) {
   }
 }
 
+function updateFleetEstimateStatus(message) {
+  if (fleetEstimateStatusEl) {
+    fleetEstimateStatusEl.textContent = message || '';
+  }
+}
+
+function updateFleetEstimateDetails(message) {
+  if (fleetEstimateDetailsEl) {
+    fleetEstimateDetailsEl.textContent = message || '';
+  }
+}
+
+function setDisplayedTurbines(features) {
+  displayedTurbineFeatures = Array.isArray(features) ? features.slice() : [];
+  if (fleetEstimateTimeoutId) {
+    clearTimeout(fleetEstimateTimeoutId);
+  }
+  if (!fleetEstimateStatusEl) {
+    return;
+  }
+  fleetEstimateTimeoutId = setTimeout(function() {
+    fleetEstimateTimeoutId = null;
+    computeFleetEstimateForShown();
+  }, 200);
+}
+
 function ensurePowerCurvesLoaded() {
   if (!powerCurvesPromise) {
     powerCurvesPromise = fetch('https://raw.githubusercontent.com/1oly/wind/main/power_curves/power_curves.json')
@@ -596,6 +668,24 @@ function estimateTurbinePower(windSpeed, ratedPowerMw) {
   return ratedPowerMw * powerFraction;
 }
 
+function sampleWindProfile(lon, lat) {
+  var profile = [];
+  WIND_PROFILE_HEIGHTS.forEach(function(height) {
+    var grid = windGridCache[height];
+    if (!grid) return;
+    var result = interpolateWindAt(grid, lon, lat);
+    if (result) {
+      profile.push({
+        height: parseInt(height, 10),
+        speed: result.speed,
+        direction: result.direction
+      });
+    }
+  });
+  profile.sort(function(a, b) { return a.height - b.height; });
+  return profile;
+}
+
 function plotWindProfileAt(lon, lat, hubHeight) {
   if (!windProfileChartEl) return Promise.resolve(null);
   var requestId = ++lastWindProfileRequestId;
@@ -604,20 +694,7 @@ function plotWindProfileAt(lon, lat, hubHeight) {
     if (requestId !== lastWindProfileRequestId) {
       return null;
     }
-    var profile = [];
-    WIND_PROFILE_HEIGHTS.forEach(function(height) {
-      var grid = windGridCache[height];
-      if (!grid) return;
-      var result = interpolateWindAt(grid, lon, lat);
-      if (result) {
-        profile.push({
-          height: parseInt(height, 10),
-          speed: result.speed,
-          direction: result.direction
-        });
-      }
-    });
-    profile.sort(function(a, b) { return a.height - b.height; });
+    var profile = sampleWindProfile(lon, lat);
     if (!profile.length) {
       Plotly.purge(windProfileChartEl);
       updateWindProfileStatus('No wind profile data available here.');
@@ -756,6 +833,125 @@ function renderGenericPowerCurve(hubSpeed, ratedPowerMw) {
   }, {responsive: true, displayModeBar: false});
 }
 
+function computeFleetEstimateForShown() {
+  if (!fleetEstimateStatusEl) return;
+  var features = Array.isArray(displayedTurbineFeatures) ? displayedTurbineFeatures : [];
+  if (!features.length) {
+    updateFleetEstimateStatus('No turbines shown.');
+    updateFleetEstimateDetails('');
+    return;
+  }
+  var requestId = ++fleetEstimateRequestId;
+  updateFleetEstimateStatus('Estimating output for ' + features.length + ' turbine(s)…');
+  updateFleetEstimateDetails('');
+  Promise.all([
+    ensureWindGridsLoaded(),
+    ensurePowerCurvesLoaded().catch(function(error) {
+      console.warn('Power curve data unavailable for fleet estimate', error);
+      return null;
+    })
+  ]).then(function() {
+    if (requestId !== fleetEstimateRequestId) {
+      return;
+    }
+    var totalMw = 0;
+    var totalCapacityMw = 0;
+    var capacityCount = 0;
+    var now = Date.now();
+    var operationalCount = 0;
+    var estimatedCount = 0;
+    for (var i = 0; i < features.length; i++) {
+      var feature = features[i];
+      if (!feature || !feature.properties || !feature.geometry) {
+        continue;
+      }
+      var capacityRaw = feature.properties.capacity_kW;
+      var capacityKw = typeof capacityRaw === 'number' ? capacityRaw : parseFloat(capacityRaw);
+      if (isFinite(capacityKw) && capacityKw > 0) {
+        totalCapacityMw += capacityKw / 1000;
+        capacityCount++;
+      }
+      if (!isFeatureOperational(feature, now)) {
+        continue;
+      }
+      operationalCount++;
+      var coords = feature.geometry.coordinates;
+      if (!Array.isArray(coords) || coords.length < 2) {
+        continue;
+      }
+      var hubHeightRaw = feature.properties.hub_height_m;
+      var hubHeight = typeof hubHeightRaw === 'number' ? hubHeightRaw : parseFloat(hubHeightRaw);
+      if (!isFinite(hubHeight) || !isFinite(capacityKw) || capacityKw <= 0) {
+        continue;
+      }
+      var profile = sampleWindProfile(coords[0], coords[1]);
+      if (!profile.length) {
+        continue;
+      }
+      var hubSpeed = interpolateSpeedAtHeight(profile, hubHeight);
+      if (typeof hubSpeed !== 'number' || isNaN(hubSpeed)) {
+        continue;
+      }
+      var ratedPowerMw = capacityKw / 1000;
+      if (ratedPowerMw <= 0) {
+        continue;
+      }
+      var curve = selectPowerCurve(capacityKw, hubHeight);
+      var estimatedMw = null;
+      if (curve) {
+        estimatedMw = interpolatePowerFromCurve(curve, hubSpeed);
+      }
+      if (typeof estimatedMw !== 'number' || isNaN(estimatedMw)) {
+        estimatedMw = estimateTurbinePower(hubSpeed, ratedPowerMw);
+      }
+      if (typeof estimatedMw === 'number' && isFinite(estimatedMw)) {
+        totalMw += estimatedMw;
+        estimatedCount++;
+      }
+    }
+    if (!operationalCount) {
+      updateFleetEstimateStatus('No operational turbines in the current selection.');
+      updateFleetEstimateDetails('');
+      return;
+    }
+    if (!estimatedCount) {
+      updateFleetEstimateStatus('Wind data unavailable for the shown operational turbines.');
+      updateFleetEstimateDetails(operationalCount + ' operational turbine(s) shown.');
+      return;
+    }
+    var estimatedGw = totalMw / 1000;
+    var statusText = 'Estimated output: ' + formatGigawatts(estimatedGw) + ' GW';
+    if (totalCapacityMw > 0) {
+      var capacityGw = totalCapacityMw / 1000;
+      var percentOfCapacity = (totalMw / totalCapacityMw) * 100;
+      statusText += ' (' + formatPercent(percentOfCapacity) + ' of ' + formatGigawatts(capacityGw) + ' GW capacity)';
+    } else {
+      statusText += ' (capacity unavailable)';
+    }
+    updateFleetEstimateStatus(statusText);
+    var details = operationalCount + ' operational turbine(s)';
+    if (features.length !== operationalCount) {
+      details += ' out of ' + features.length + ' shown';
+    }
+    if (estimatedCount !== operationalCount) {
+      details += '. Used ' + estimatedCount + ' with wind and curve data';
+    } else {
+      details += '. All included in estimate';
+    }
+    if (totalCapacityMw > 0 && features.length > capacityCount) {
+      details += ' (capacity missing for ' + (features.length - capacityCount) + ')';
+    }
+    updateFleetEstimateDetails(details + '.');
+  }).catch(function(error) {
+    if (requestId !== fleetEstimateRequestId) {
+      return;
+    }
+    console.warn('Unable to compute fleet estimate', error);
+    updateFleetEstimateStatus('Unable to estimate turbine output right now.');
+    updateFleetEstimateDetails('');
+  });
+}
+
 function renderTurbineCollection(features, options) {
   if (wtlyr) {
     map.removeLayer(wtlyr);
@@ -764,6 +960,7 @@ function renderTurbineCollection(features, options) {
   var validFeatures = Array.isArray(features) ? features.filter(function(feature) {
     return feature && feature.geometry && feature.geometry.type === 'Point' && Array.isArray(feature.geometry.coordinates);
   }) : [];
+  setDisplayedTurbines(validFeatures);
   if (!validFeatures.length) {
     return 0;
   }
@@ -997,6 +1194,16 @@ function formatMegawatts(value) {
   return value.toLocaleString('da-DK', {minimumFractionDigits: 1, maximumFractionDigits: 1});
 }
 
+function formatGigawatts(value) {
+  if (typeof value !== 'number' || isNaN(value)) return '0.0';
+  return value.toLocaleString('da-DK', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+}
+
+function formatPercent(value) {
+  if (typeof value !== 'number' || isNaN(value)) return '0%';
+  return value.toLocaleString('da-DK', {minimumFractionDigits: 0, maximumFractionDigits: 1}) + '%';
+}
+
 function updateFilterStatistics(features) {
   if (!filterCapacitySumEl || !filterHistogramEl) return;
   var totalCapacityKw = 0;
@@ -1065,6 +1272,20 @@ function parseFeatureDate(value) {
 
 function hasDecommissionDate(value) {
   return !(value === null || typeof value === 'undefined' || value === '');
+}
+
+function isFeatureOperational(feature, referenceTime) {
+  var props = feature && feature.properties ? feature.properties : {};
+  var now = typeof referenceTime === 'number' ? referenceTime : Date.now();
+  var connectTs = parseFeatureDate(props.date_connect);
+  if (typeof connectTs === 'number' && !isNaN(connectTs) && connectTs > now) {
+    return false;
+  }
+  var decomTs = parseFeatureDate(props.date_decom);
+  if (typeof decomTs === 'number' && !isNaN(decomTs) && decomTs <= now) {
+    return false;
+  }
+  return true;
 }
 
 function applyFilters() {
@@ -1211,10 +1432,25 @@ $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/wt_2025jan.json", fu
   allTurbineFeatures = Array.isArray(wt.features) ? wt.features.slice() : [];
   populateFilterOptions(allTurbineFeatures);
   initializeRangeControls(allTurbineFeatures);
-  updateFilterStatistics(allTurbineFeatures);
-  var shown = renderTurbineCollection(allTurbineFeatures, {fitBounds: true});
+  var defaultSelection = allTurbineFeatures;
+  var defaultingToOperational = false;
+  if (filterStatusEl && filterStatusEl.value === 'operational') {
+    var operationalOnly = allTurbineFeatures.filter(function(feature) {
+      return isFeatureOperational(feature);
+    });
+    if (operationalOnly.length) {
+      defaultSelection = operationalOnly;
+      defaultingToOperational = true;
+    }
+  }
+  updateFilterStatistics(defaultSelection);
+  var shown = renderTurbineCollection(defaultSelection, {fitBounds: true});
   if (shown > 0) {
-    updateFilterResults('Showing ' + shown + ' turbine(s). Adjust the filters and press Show to narrow the selection.');
+    if (defaultingToOperational) {
+      updateFilterResults('Showing ' + shown + ' operational turbine(s). Adjust the filters and press Show to include decommissioned turbines.');
+    } else {
+      updateFilterResults('Showing ' + shown + ' turbine(s). Adjust the filters and press Show to narrow the selection.');
+    }
   } else {
     updateFilterResults('Turbine data loaded, but none include coordinates to display on the map.');
   }
