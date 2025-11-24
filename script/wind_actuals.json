@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-24T10:33:43.615178+00:00",
+  "generated_at": "2025-11-24T11:13:50.460111+00:00",
   "source": "https://api.energidataservice.dk/dataset/ElectricityProdex5MinRealtime",
   "areas": {
     "DK1": {
@@ -21,5 +21,6 @@
     "onshore_mw": 281.829994,
     "offshore_mw": 285.639999,
     "total_mw": 567.4699929999999
-  }
+  },
+  "latest_timestamp_utc": "2025-11-21T13:05:00"
 }
