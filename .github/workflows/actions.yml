@@ -30,6 +30,9 @@ jobs:
           DMI_API_KEY: ${{ secrets.DMI_API_KEY }}
         run: python forecastedr_script_DINI.py
 
+      - name: fetch wind actuals
+        run: python elec_map_script.py --output wind_actuals.json
+
       - name: commit files
         run: |
           git config --local user.email "action@github.com"
