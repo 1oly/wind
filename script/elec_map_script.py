@@ -118,8 +118,18 @@ def collect_production(limit: int) -> dict[str, Any]:
         "source": DATASET_URL,
         "areas": areas,
         "totals": summarize_totals(entries),
+        "latest_timestamp_utc": compute_latest_timestamp(entries),
     }
     return payload
+
+
+def compute_latest_timestamp(entries: list[PriceAreaProduction]) -> str | None:
+    timestamps = [
+        entry.timestamp_utc for entry in entries if isinstance(entry.timestamp_utc, str)
+    ]
+    if not timestamps:
+        return None
+    return max(timestamps)
 
 
 def write_output(data: dict[str, Any], output_path: Path) -> None:
