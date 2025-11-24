@@ -380,6 +380,7 @@ body > #sidebar {
 <div id="fleetEstimatePanel" class="fleet-estimate-panel">
   <div class="fleet-estimate-title">Wind turbines</div>
   <div id="fleetEstimateStatus" class="fleet-estimate-status">Loading wind data…</div>
+  <div id="fleetActualsStatus" class="fleet-estimate-details">Loading actual production…</div>
   <div id="fleetEstimateDetails" class="fleet-estimate-details"></div>
 </div>
 <script>
@@ -398,6 +399,7 @@ var powerCurveChartEl = document.getElementById('powerCurveChart');
 var powerCurveStatusEl = document.getElementById('powerCurveStatus');
 var fleetEstimateStatusEl = document.getElementById('fleetEstimateStatus');
 var fleetEstimateDetailsEl = document.getElementById('fleetEstimateDetails');
+var fleetActualsEl = document.getElementById('fleetActualsStatus');
 var WIND_PROFILE_HEIGHTS = ['10m','50m','100m','150m','250m','350m','450m'];
 var windGridCache = {};
 var windGridPromise = null;
@@ -435,10 +437,15 @@ if (filterStatusEl) {
 var RANGE_EPSILON = 1e-6;
 var fleetEstimateRequestId = 0;
 var fleetEstimateTimeoutId = null;
+var ACTUAL_PRODUCTION_URL = 'https://raw.githubusercontent.com/1oly/wind/main/script/wind_actuals.json';
+var actualProductionPromise = null;
+var actualProductionData = null;
 
 if (applyFiltersBtn) {
   applyFiltersBtn.addEventListener('click', applyFilters);
 }
+
+refreshActualProductionDisplay();
 
 function ensureWindGridsLoaded() {
   if (!windGridPromise) {
@@ -554,6 +561,12 @@ function updateFleetEstimateDetails(message) {
   }
 }
 
+function updateFleetActualsStatus(message) {
+  if (fleetActualsEl) {
+    fleetActualsEl.textContent = message || '';
+  }
+}
+
 function setDisplayedTurbines(features) {
   displayedTurbineFeatures = Array.isArray(features) ? features.slice() : [];
   if (fleetEstimateTimeoutId) {
@@ -566,6 +579,84 @@ function setDisplayedTurbines(features) {
     fleetEstimateTimeoutId = null;
     computeFleetEstimateForShown();
   }, 200);
+}
+
+function fetchActualProductionData(forceRefresh) {
+  if (!actualProductionPromise || forceRefresh) {
+    actualProductionPromise = fetch(ACTUAL_PRODUCTION_URL, { cache: 'no-cache' })
+      .then(function(response) {
+        if (!response.ok) {
+          throw new Error('Actual production file missing');
+        }
+        return response.json();
+      })
+      .then(function(data) {
+        actualProductionData = data;
+        return data;
+      })
+      .catch(function(error) {
+        console.warn('Unable to load actual production', error);
+        actualProductionPromise = null;
+        throw error;
+      });
+  }
+  return actualProductionPromise;
+}
+
+function refreshActualProductionDisplay(estimatedMw) {
+  if (!fleetActualsEl) return;
+  fetchActualProductionData().then(function(data) {
+    updateFleetActualsStatus(formatActualProductionText(data, estimatedMw));
+  }).catch(function() {
+    updateFleetActualsStatus('Actual production unavailable right now.');
+  });
+}
+
+function formatActualProductionText(data, estimatedMw) {
+  if (!data || typeof data !== 'object') {
+    return 'Actual production unavailable.';
+  }
+  var parts = [];
+  var totals = data.totals || {};
+  var totalGw = convertMwToGw(totals.total_mw);
+  if (totalGw !== null) {
+    parts.push('Total ' + formatGigawatts(totalGw) + ' GW');
+  }
+  var areaParts = [];
+  var areas = data.areas || {};
+  ['DK1', 'DK2'].forEach(function(area) {
+    var areaData = areas[area];
+    var areaGw = convertMwToGw(areaData && areaData.total_mw);
+    if (areaGw === null) return;
+    var areaText = area + ' ' + formatGigawatts(areaGw) + ' GW';
+    var breakdown = [];
+    var onshoreGw = convertMwToGw(areaData && areaData.onshore_mw);
+    if (onshoreGw !== null) {
+      breakdown.push('on ' + formatGigawatts(onshoreGw));
+    }
+    var offshoreGw = convertMwToGw(areaData && areaData.offshore_mw);
+    if (offshoreGw !== null) {
+      breakdown.push('off ' + formatGigawatts(offshoreGw));
+    }
+    if (breakdown.length) {
+      areaText += ' (' + breakdown.join(' / ') + ')';
+    }
+    areaParts.push(areaText);
+  });
+  if (areaParts.length) {
+    parts.push(areaParts.join('; '));
+  }
+  if (typeof estimatedMw === 'number' && isFinite(estimatedMw)) {
+    parts.push('Estimate shown ' + formatGigawatts(estimatedMw / 1000) + ' GW');
+  }
+  var timestamp = data.generated_at || getLatestAreaTimestamp(areas);
+  if (timestamp) {
+    parts.push('updated ' + formatActualTimestamp(timestamp));
+  }
+  if (!parts.length) {
+    return 'Actual production unavailable.';
+  }
+  return 'Actual wind: ' + parts.join(' – ');
 }
 
 function ensurePowerCurvesLoaded() {
@@ -839,6 +930,7 @@ function computeFleetEstimateForShown() {
   if (!features.length) {
     updateFleetEstimateStatus('No turbines shown.');
     updateFleetEstimateDetails('');
+    refreshActualProductionDisplay();
     return;
   }
   var requestId = ++fleetEstimateRequestId;
@@ -912,11 +1004,13 @@ function computeFleetEstimateForShown() {
     if (!operationalCount) {
       updateFleetEstimateStatus('No operational turbines in the current selection.');
       updateFleetEstimateDetails('');
+      refreshActualProductionDisplay();
       return;
     }
     if (!estimatedCount) {
       updateFleetEstimateStatus('Wind data unavailable for the shown operational turbines.');
       updateFleetEstimateDetails(operationalCount + ' operational turbine(s) shown.');
+      refreshActualProductionDisplay();
       return;
     }
     var estimatedGw = totalMw / 1000;
@@ -942,6 +1036,7 @@ function computeFleetEstimateForShown() {
       details += ' (capacity missing for ' + (features.length - capacityCount) + ')';
     }
     updateFleetEstimateDetails(details + '.');
+    refreshActualProductionDisplay(totalMw);
   }).catch(function(error) {
     if (requestId !== fleetEstimateRequestId) {
       return;
@@ -949,6 +1044,7 @@ function computeFleetEstimateForShown() {
     console.warn('Unable to compute fleet estimate', error);
     updateFleetEstimateStatus('Unable to estimate turbine output right now.');
     updateFleetEstimateDetails('');
+    refreshActualProductionDisplay();
   });
 }
 
@@ -1202,6 +1298,46 @@ function formatGigawatts(value) {
 function formatPercent(value) {
   if (typeof value !== 'number' || isNaN(value)) return '0%';
   return value.toLocaleString('da-DK', {minimumFractionDigits: 0, maximumFractionDigits: 1}) + '%';
+}
+
+function getNumberOrNull(value) {
+  if (typeof value === 'number' && isFinite(value)) return value;
+  var parsed = typeof value === 'string' ? parseFloat(value) : NaN;
+  return isFinite(parsed) ? parsed : null;
+}
+
+function convertMwToGw(value) {
+  var mw = getNumberOrNull(value);
+  if (mw === null) return null;
+  return mw / 1000;
+}
+
+function getLatestAreaTimestamp(areas) {
+  if (!areas || typeof areas !== 'object') return null;
+  var latest = null;
+  Object.keys(areas).forEach(function(key) {
+    var ts = areas[key] && areas[key].timestamp_utc;
+    if (!ts) return;
+    if (!latest || ts > latest) {
+      latest = ts;
+    }
+  });
+  return latest;
+}
+
+function formatActualTimestamp(timestamp) {
+  if (typeof timestamp !== 'string') return '';
+  var iso = timestamp;
+  if (iso.endsWith('+00:00')) {
+    iso = iso.replace('+00:00', 'Z');
+  } else if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso)) {
+    iso += 'Z';
+  }
+  var date = new Date(iso);
+  if (isNaN(date.getTime())) {
+    return timestamp;
+  }
+  return date.toISOString().replace('T', ' ').replace('.000Z', ' UTC');
 }
 
 function updateFilterStatistics(features) {
