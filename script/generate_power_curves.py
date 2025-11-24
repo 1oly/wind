@@ -26,7 +26,7 @@ WS_VALUES = np.arange(0.0, 30.5, 0.5)
 DEFAULT_WS_CUTIN = 3.0
 DEFAULT_WS_RATED = 12.0
 DEFAULT_WS_CUTOUT = 25.0
-CLUSTER_COUNT = 13  # Set to None to export one curve per turbine
+CLUSTER_COUNT = 50  # Set to None to export one curve per turbine
 
 
 @dataclass(frozen=True)
