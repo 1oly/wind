@@ -1,26 +1,26 @@
 {
-  "generated_at": "2025-11-30T09:13:56.508905+00:00",
+  "generated_at": "2025-11-30T10:14:10.956059+00:00",
   "source": "https://api.energidataservice.dk/dataset/ElectricityProdex5MinRealtime",
   "areas": {
     "DK1": {
       "price_area": "DK1",
-      "timestamp_utc": "2025-11-30T09:10:00",
-      "onshore_mw": 2402.330078,
-      "offshore_mw": 1461.959961,
-      "total_mw": 3864.290039
+      "timestamp_utc": "2025-11-30T10:10:00",
+      "onshore_mw": 2744.850098,
+      "offshore_mw": 1473.75,
+      "total_mw": 4218.600098
     },
     "DK2": {
       "price_area": "DK2",
-      "timestamp_utc": "2025-11-30T09:10:00",
-      "onshore_mw": 277.149994,
-      "offshore_mw": 894.51001,
-      "total_mw": 1171.6600039999998
+      "timestamp_utc": "2025-11-30T10:10:00",
+      "onshore_mw": 237.210007,
+      "offshore_mw": 867.549988,
+      "total_mw": 1104.759995
     }
   },
   "totals": {
-    "onshore_mw": 2679.480072,
-    "offshore_mw": 2356.469971,
-    "total_mw": 5035.950043
+    "onshore_mw": 2982.060105,
+    "offshore_mw": 2341.2999879999998,
+    "total_mw": 5323.360092999999
   },
-  "latest_timestamp_utc": "2025-11-30T09:10:00"
+  "latest_timestamp_utc": "2025-11-30T10:10:00"
 }
