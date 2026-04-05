@@ -1,3 +1,11 @@
 .DS_Store
 __pycache__/
 .vscode/
+
+# Auto-generated wind data files
+script/wind*.json
+wt_*.json
+wt.geojson
+windmap.png
+data_*.xlsx
+anlaeg.xlsx
