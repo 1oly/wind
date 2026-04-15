@@ -9,12 +9,7 @@ from dmi_forecast_edr import DMIForecastEDRClient, Collection
 
 HEIGHTS = ['10m', '50m', '100m', '150m', '250m', '350m', '450m']
 
-try:
-    DMI_API_KEY = os.environ['DMI_API_KEY']
-except KeyError:
-    DMI_API_KEY = "Token not available!"
-
-client = DMIForecastEDRClient(api_key=DMI_API_KEY)
+client = DMIForecastEDRClient()
 
 dtnow = datetime.now(pytz.timezone('Europe/Copenhagen')).replace(tzinfo=None)
 

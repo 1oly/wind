@@ -3,7 +3,7 @@
 
 [![Wind map](windmap.png)](https://wind.olly.dk)
 
-Data is retrieved with the [DMI-Forecast-EDR-API](https://github.com/1oly/dmi-forecast-edr) that requires an API key.
+Data is retrieved with the [DMI-Forecast-EDR-API](https://github.com/1oly/dmi-forecast-edr).
 
 Visualization is done via a combination of [leaflet-velocity](https://github.com/onaci/leaflet-velocity) and [windy](https://github.com/Wolfrax/windy). 
 

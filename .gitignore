@@ -9,3 +9,4 @@ wt.geojson
 windmap.png
 data_*.xlsx
 anlaeg.xlsx
+.venv/
