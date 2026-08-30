@@ -1,17 +1,16 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import numpy as np
 from scipy.interpolate import griddata
 import math
 import json
-import pytz
 from dmi_forecast_edr import DMIForecastEDRClient, Collection
 
 HEIGHTS = ['10m', '50m', '100m', '150m', '250m', '350m', '450m']
 
 client = DMIForecastEDRClient()
 
-dtnow = datetime.now(pytz.timezone('Europe/Copenhagen')).replace(tzinfo=None)
+dtnow = datetime.now(timezone.utc).replace(tzinfo=None)
 
 forecast = client.get_forecast(
     collection=Collection.HarmonieDiniSf,
@@ -21,6 +20,9 @@ forecast = client.get_forecast(
     f='GeoJSON',
     coords=[3.00, 52.00, 20.00, 65.00]
 )
+
+if not forecast:
+    raise SystemExit("DMI EDR returned no features for the requested time")
 
 geo = []
 step = []

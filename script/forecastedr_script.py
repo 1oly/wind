@@ -1,10 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import numpy as np
 from scipy.interpolate import griddata
 import math
 import json
-import pytz
 from dmi_forecast_edr import DMIForecastEDRClient, Collection
 
 try:
@@ -14,7 +13,7 @@ except KeyError:
 
 client = DMIForecastEDRClient(api_key=DMI_API_KEY)
 
-dtnow = datetime.now(pytz.timezone('Europe/Copenhagen')).replace(tzinfo=None)
+dtnow = datetime.now(timezone.utc).replace(tzinfo=None)
 
 forecast = client.get_forecast(
     collection = Collection.HarmonieDiniSf,
