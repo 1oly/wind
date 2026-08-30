@@ -1,6 +1,7 @@
 name: run forecastedr_script.py
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '0 * * * *'
 
