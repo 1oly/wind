@@ -30,7 +30,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # DMI's data endpoints can stay busy for an hour; keep the run green and
+      # leave the previous wind fields in place rather than losing the actuals too
       - name: execute py script # run main.py
+        continue-on-error: true
         env:
           DMI_API_KEY: ${{ secrets.DMI_API_KEY }}
         run: python forecastedr_script_DINI.py

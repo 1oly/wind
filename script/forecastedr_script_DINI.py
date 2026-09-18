@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import os
+import time
 import numpy as np
 from scipy.interpolate import griddata
 import math
@@ -14,19 +15,34 @@ client = DMIForecastEDRClient()
 # not be published yet while DMI is mid-upload of the newest model run
 dtnow = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0, tzinfo=None)
 
-for hours_back in range(3):
-    forecast = client.get_forecast(
-        collection=Collection.HarmonieDiniSf,
-        parameter=[f'wind-speed-{h}' for h in HEIGHTS] + [f'wind-dir-{h}' for h in HEIGHTS],
-        crs='crs84',
-        to_time=dtnow - timedelta(hours=hours_back),
-        f='GeoJSON',
-        coords=[3.00, 52.00, 20.00, 65.00]
-    )
+# DMI answers 429 "Server is busy" on the data endpoints for minutes at a time,
+# so ride that out here; the client itself only retries for a few seconds.
+# ponytail: fixed 60 s poll for 10 minutes, raise GIVE_UP_AFTER if busy spells get longer
+GIVE_UP_AFTER = timedelta(minutes=10)
+
+forecast = None
+deadline = time.monotonic() + GIVE_UP_AFTER.total_seconds()
+while True:
+    try:
+        for hours_back in range(3):
+            forecast = client.get_forecast(
+                collection=Collection.HarmonieDiniSf,
+                parameter=[f'wind-speed-{h}' for h in HEIGHTS] + [f'wind-dir-{h}' for h in HEIGHTS],
+                crs='crs84',
+                to_time=dtnow - timedelta(hours=hours_back),
+                f='GeoJSON',
+                coords=[3.00, 52.00, 20.00, 65.00]
+            )
+            if forecast:
+                break
+    except Exception as exc:
+        print(f"DMI query failed: {exc}", flush=True)
     if forecast:
         break
-else:
-    raise SystemExit(f"DMI EDR returned no features for {dtnow} or the 2 hours before it")
+    if time.monotonic() >= deadline:
+        raise SystemExit(f"DMI EDR served no data for {dtnow} within {GIVE_UP_AFTER}")
+    print("retrying in 60 s", flush=True)
+    time.sleep(60)
 
 geo = []
 step = []
