@@ -56,7 +56,6 @@ cols[i], cols[j] = cols[j], cols[i]
 new = _tidy(raw[cols])
 
 # park production, shared out to member turbines by capacity
-# ponytail: pro-rata by capacity ignores a turbine decommissioned mid-year; refine if a park's members change often
 park = pd.read_excel('Parkproduktion.xlsx', header=1).drop_duplicates('Parknummer (relation)').set_index('Parknummer (relation)')
 park = park.apply(_danish_number)
 park.columns = [_year(c) for c in park.columns]
@@ -77,7 +76,7 @@ df = df[META_COLUMNS[1:] + year_cols].rename_axis('id').reset_index()
 
 points = geopandas.points_from_xy(x=df.X_UTM_32_ETRS89, y=df.Y_UTM_32_ETRS89, crs="EPSG:25832")
 gdf = geopandas.GeoDataFrame(df, geometry=points).to_crs("EPSG:4326")
-gdf.to_file('wt_2025jan.json', driver='GeoJSON')
+gdf.to_file('wt_2026sep.json', driver='GeoJSON')
 
 # self-check: nothing lost, and the overlap year agrees between sources
 assert len(df) == len(set(old.index) | set(new.index)), 'turbines lost in merge'
