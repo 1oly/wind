@@ -1737,8 +1737,9 @@ var sidebar = L.control.sidebar({
  
 function getData(d) {
   var data = [];
-  const yearsN = [...Array(48)].map((_, i) => i+1977)
-  const years = [...Array(48)].map((_, i) => `${i+1977}`)
+  const nYears = new Date().getFullYear() - 1977 + 1
+  const yearsN = [...Array(nYears)].map((_, i) => i+1977)
+  const years = [...Array(nYears)].map((_, i) => `${i+1977}`)
   const keys = Object.keys(d.properties)
   filteredArray = keys.filter( function( el ) {
     return years.includes( el );
