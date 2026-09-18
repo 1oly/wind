@@ -50,6 +50,14 @@ html, #map {
     color: #bbb;
 }
 
+.fleet-estimate-toggle {
+    display: block;
+    margin-top: 8px;
+    font-size: 9pt;
+    color: #ddd;
+    cursor: pointer;
+}
+
 .fleet-estimate-columns {
     display: flex;
     gap: 12px;
@@ -452,6 +460,7 @@ body > #sidebar {
       <div id="fleetEstimateDetails" class="fleet-estimate-subvalue"></div>
     </div>
   </div>
+  <label class="fleet-estimate-toggle"><input id="windToggle" type="checkbox" checked> Toggle wind</label>
 </div>
 <script>
 
@@ -1713,8 +1722,13 @@ map.on('zoomend', function() {
 
 // WIND PARTICLES
 
+var velocityLayer;
+document.getElementById('windToggle').addEventListener('change', function () {
+  if (!velocityLayer) return;
+  this.checked ? velocityLayer.addTo(map) : map.removeLayer(velocityLayer);
+});
 $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind10m.json", function(data) {
-  var velocityLayer = L.velocityLayer({
+  velocityLayer = L.velocityLayer({
     displayValues: true,
     displayOptions: {
       velocityType: "Wind",
@@ -1723,7 +1737,8 @@ $.getJSON("https://raw.githubusercontent.com/1oly/wind/main/script/wind10m.json"
     },
     data: data,
     maxVelocity: 25
-  }).addTo(map);
+  });
+  if (document.getElementById('windToggle').checked) velocityLayer.addTo(map);
   $(".refDate").html(data[0].header.refTime.substr(0, 10));
   $(".refTime").html(data[0].header.refTime.substr(11, 8));
 });
